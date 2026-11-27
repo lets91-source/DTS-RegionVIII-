@@ -7,38 +7,51 @@ const css = fs.readFileSync(path.join(root, "public", "styles.css"), "utf8");
 const js = fs.readFileSync(path.join(root, "public", "app.js"), "utf8");
 
 const gasShim = `
-// Google Apps Script transparent fetch adapter (supports Auth, RBAC, and CRUD)
+// Google Apps Script unified fetch adapter (Full Auth/OTP, RBAC, Incoming/Outgoing/Issuance/Mailing, Emails & Drive PDFs)
 (function () {
   if (typeof google === "undefined" || !google.script || !google.script.run) return;
   const callGas = (fn, ...args) => new Promise((resolve, reject) => {
     google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args);
   });
+  const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || "").replace(/^data:[^;]+;base64,/i, ""));
+    reader.onerror = () => reject(new Error("Failed to read file for Google Drive upload."));
+    reader.readAsDataURL(blob);
+  });
   window.fetch = async function (url, opts) {
     const method = ((opts && opts.method) || "GET").toUpperCase();
-    const headers = (opts && opts.headers) || {};
-    const auth = headers.Authorization || headers.authorization || "";
+    const rawHeaders = (opts && opts.headers) || {};
+    const headers = {};
+    Object.keys(rawHeaders).forEach((k) => { headers[k.toLowerCase()] = rawHeaders[k]; });
+    const auth = headers["authorization"] || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-    const body = opts && opts.body ? JSON.parse(opts.body) : {};
-    let resData = {};
-    if (url === "/api/public/divisions") resData = await callGas("getPublicDivisions");
-    else if (url === "/api/auth/login") resData = await callGas("authLogin", body);
-    else if (url === "/api/auth/register") resData = await callGas("authRegister", body);
-    else if (url === "/api/auth/logout") resData = await callGas("authLogout", token);
-    else if (url === "/api/state") resData = await callGas("getState", token);
-    else if (url.startsWith("/api/next-number")) {
-      const sp = new URLSearchParams(url.split("?")[1] || "");
-      resData = await callGas("getNextNumber", sp.get("type") || "incoming", sp.get("date") || "", token, sp.get("category") || "External", sp.get("year") || "", sp.get("division") || "");
-    } else if (url === "/api/upload-pdf" && method === "POST") resData = await callGas("uploadPdfAttachment", body, token);
-    else if (url === "/api/incoming" && method === "POST") resData = await callGas("upsertIncoming", body, token);
-    else if (url === "/api/outgoing" && method === "POST") resData = await callGas("upsertOutgoing", body, token);
-    else if (url.startsWith("/api/users/") && url.endsWith("/status") && method === "PUT") {
-      const uid = decodeURIComponent(url.slice("/api/users/".length, -"/status".length));
-      resData = await callGas("updateUserApprovalStatus", uid, body.approvalStatus || "APPROVED", token);
-    } else if (url.startsWith("/api/users/") && method === "DELETE") {
-      resData = await callGas("deleteUserAccount", decodeURIComponent(url.slice("/api/users/".length)), token);
-    } else if (url === "/api/settings" && method === "PUT") resData = await callGas("saveSettings", body.meta || {}, token);
-    const ok = resData && !resData.error;
-    return { ok, status: resData && resData.statusCode ? resData.statusCode : (ok ? 200 : 400), json: async () => resData };
+
+    let body = {};
+    if (opts && opts.body !== undefined && opts.body !== null) {
+      if (typeof Blob !== "undefined" && opts.body instanceof Blob) {
+        const base64 = await blobToBase64(opts.body);
+        body = {
+          filename: decodeURIComponent(headers["x-filename"] || (opts.body.name || "attachment.pdf")),
+          controlNo: decodeURIComponent(headers["x-control-no"] || ""),
+          base64,
+        };
+      } else if (typeof opts.body === "string") {
+        try { body = JSON.parse(opts.body); } catch (_) { body = { raw: opts.body }; }
+      } else if (typeof opts.body === "object") {
+        body = opts.body;
+      }
+    }
+
+    const resData = await callGas("gasApiDispatch", {
+      url: String(url || ""),
+      method,
+      token,
+      body,
+    });
+    const ok = !!(resData && !resData.error && (resData.statusCode === undefined || resData.statusCode < 400));
+    const status = resData && resData.statusCode ? resData.statusCode : (ok ? 200 : 400);
+    return { ok, status, json: async () => resData || {} };
   };
 })();
 `;
