@@ -11,13 +11,15 @@ const path = require("path");
 const crypto = require("crypto");
 const { URL } = require("url");
 
+const IS_VERCEL = !!process.env.VERCEL;
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const PUBLIC_DIR = path.join(__dirname, "public");
-const UPLOADS_DIR = path.join(__dirname, "uploads");
-const DB_PATH = path.join(__dirname, "data", "dts-db.json");
+const UPLOADS_DIR = IS_VERCEL ? path.join("/tmp", "dar-dts-uploads") : path.join(__dirname, "uploads");
+const DB_PATH = IS_VERCEL ? path.join("/tmp", "dar-dts-db.json") : path.join(__dirname, "data", "dts-db.json");
 const SERVICE_ACCOUNT_PATH = path.join(__dirname, "google-credentials.json");
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (_) {}
+try { fs.mkdirSync(path.dirname(DB_PATH), { recursive: true }); } catch (_) {}
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -313,7 +315,60 @@ function buildSeedUsers() {
   ];
 }
 
+function buildSeedDatabase() {
+  return {
+    meta: {
+      agency: "DEPARTMENT OF AGRARIAN REFORM",
+      tagline: "Tunay na Pagbabago sa Repormang Agraryo",
+      officeName: "DAR Eastern Visayas Regional Office VIII",
+      address: "DAR Regional Office 08, Sto. Niño Extension, Tacloban City",
+      telefax: "(02) 325-3095",
+      website: "www.dar.gov.ph",
+      regionalDirector: "ATTY. ROBERT ANTHONY P. YU",
+      incomingFormCode: "DR08-STOR-F-001-REV-01",
+      spreadsheetId: "1aGcUZqjCA0GSfKoxVLdNG64Q6udj2AZniRRK79r9OZE",
+      spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1aGcUZqjCA0GSfKoxVLdNG64Q6udj2AZniRRK79r9OZE/edit",
+      driveFolderId: "1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC",
+      driveFolderUrl: "https://drive.google.com/drive/folders/1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC?usp=sharing",
+      appsScriptUrl: "https://script.google.com/macros/s/AKfycbwxfLa-mnY35lISPmZerof8-KF32bppJXRw-bTuqroo_sp38USS5HcDifeICzWOgE42/exec",
+      senderEmail: "darrec8@gmail.com",
+      loginOtpEnabled: false,
+      officeEmails: {},
+      issuanceCategories: ["Order", "Finality", "RCLUPPI", "Resolution", "Erratum", "Writ of Execution", "Interlocutory", "Memo", "Notice"],
+      mailingCouriers: ["PhilPost", "JRS"],
+    },
+    divisions: [
+      { code: "RD", name: "Office of the Regional Director", group: "Executive", head: "Regional Director", focal: "RD Secretary" },
+      { code: "ARDO", name: "Office of the Asst. Regional Director for Operations", group: "Executive", head: "ARDO", focal: "ARDO Secretary" },
+      { code: "ARDA", name: "Office of the Asst. Regional Director for Administration", group: "Executive", head: "ARDA", focal: "ARDA Secretary" },
+      { code: "LTS", name: "Land Tenure Services Division", group: "Operations", head: "Chief, LTSD", focal: "LTS Focal" },
+      { code: "ARBDSP", name: "Agrarian Reform Beneficiaries Development & Sustainability", group: "Operations", head: "Chief, ARBDSP", focal: "ARBDSP Focal" },
+      { code: "LEGAL", name: "Legal Division", group: "Legal", head: "Chief, Legal Division", focal: "Legal Focal" },
+      { code: "DARAB", name: "DAR Adjudication Board / RARAD (Regional)", group: "Legal", head: "Regional Adjudicator", focal: "DARAB Clerk" },
+      { code: "STO", name: "Support to Operations Division (STOD Chief)", group: "STO", head: "Chief, STOD", focal: "STO Secretary" },
+      { code: "STO - Accounting", name: "STO — Accounting Section", group: "STO", head: "Accountant III", focal: "Accounting Staff" },
+      { code: "STO - Budget", name: "STO — Budget Section", group: "STO", head: "Budget Officer", focal: "Budget Staff" },
+      { code: "STO - Cashier", name: "STO — Cashier Section", group: "STO", head: "Cashier", focal: "Cashier Staff" },
+      { code: "STO - HRD", name: "STO — Human Resource & Development", group: "STO", head: "HRMO", focal: "HRD Staff" },
+      { code: "STO - Records", name: "STO — Records Section", group: "STO", head: "Records Officer", focal: "Records Staff" },
+      { code: "STO - Supply", name: "STO — Supply Section", group: "STO", head: "Supply Officer", focal: "Supply Staff" },
+      { code: "STO - GSD", name: "STO — General Services Division", group: "STO", head: "GSD Head", focal: "GSD Staff" },
+      { code: "STO - Procurement", name: "STO — Procurement / BAC", group: "STO", head: "BAC Secretariat", focal: "Procurement Staff" },
+      { code: "STO - Planning", name: "STO — Planning & Management", group: "STO", head: "Planning Officer", focal: "Planning Staff" },
+    ],
+    users: buildSeedUsers(),
+    incoming: [],
+    outgoing: [],
+    issuances: [],
+    mailings: [],
+  };
+}
+
 function readDb() {
+  if (!fs.existsSync(DB_PATH)) {
+    const seeded = buildSeedDatabase();
+    writeDb(seeded);
+  }
   const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
   let dirty = false;
 
@@ -459,6 +514,7 @@ function readDb() {
 }
 
 function writeDb(db) {
+  try { fs.mkdirSync(path.dirname(DB_PATH), { recursive: true }); } catch (_) {}
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf8");
 }
 
@@ -3273,7 +3329,7 @@ function serveStatic(req, res, urlObj) {
   });
 }
 
-const server = http.createServer((req, res) => {
+function requestHandler(req, res) {
   const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   if (urlObj.pathname.startsWith("/api/")) return handleApi(req, res, urlObj);
   if (urlObj.pathname.startsWith("/uploads/")) {
@@ -3291,21 +3347,26 @@ const server = http.createServer((req, res) => {
     return fs.createReadStream(fullPath).pipe(res);
   }
   return serveStatic(req, res, urlObj);
-});
+}
 
-server.listen(PORT, HOST, () => {
-  console.log(`DAR RO VIII Document Tracking System running at http://localhost:${PORT}`);
-  // Automated Google Sheets Issuance & Mailing sync on startup + every 2 minutes in background
-  setTimeout(() => {
-    syncAllIssuancesToSheet().then((r) => {
-      if (r && r.ok) console.log(`[Auto-Sync] Synced ${r.syncedCount} Issuance tab(s) to Google Sheet.`);
-    }).catch(() => {});
-    syncAllMailingsToSheet().then((r) => {
-      if (r && r.ok) console.log(`[Auto-Sync] Synced ${r.syncedCount} Mailing tab(s) to Google Sheet.`);
-    }).catch(() => {});
-  }, 2500);
-  setInterval(() => {
-    syncAllIssuancesToSheet().catch(() => {});
-    syncAllMailingsToSheet().catch(() => {});
-  }, 2 * 60 * 1000);
-});
+if (IS_VERCEL) {
+  module.exports = requestHandler;
+} else {
+  const server = http.createServer(requestHandler);
+  server.listen(PORT, HOST, () => {
+    console.log(`DAR RO VIII Document Tracking System running at http://localhost:${PORT}`);
+    // Automated Google Sheets Issuance & Mailing sync on startup + every 2 minutes in background
+    setTimeout(() => {
+      syncAllIssuancesToSheet().then((r) => {
+        if (r && r.ok) console.log(`[Auto-Sync] Synced ${r.syncedCount} Issuance tab(s) to Google Sheet.`);
+      }).catch(() => {});
+      syncAllMailingsToSheet().then((r) => {
+        if (r && r.ok) console.log(`[Auto-Sync] Synced ${r.syncedCount} Mailing tab(s) to Google Sheet.`);
+      }).catch(() => {});
+    }, 2500);
+    setInterval(() => {
+      syncAllIssuancesToSheet().catch(() => {});
+      syncAllMailingsToSheet().catch(() => {});
+    }, 2 * 60 * 1000);
+  });
+}
