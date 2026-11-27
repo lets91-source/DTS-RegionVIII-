@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DAR Eastern Visayas — Document Tracking System (DTS)</title>
+  <link rel="icon" type="image/jpeg" href="/dar-ro8-logo.jpg" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- AUTH GATEWAY (LOGIN & REGISTRATION) -->
+  <div class="auth-screen" id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-banner">
+        <div class="brand-crest">
+          <img src="/dar-ro8-logo.jpg" alt="DAR Eastern Visayas Logo" class="brand-logo-img auth-logo" />
+        </div>
+        <div>
+          <div class="auth-kicker">REPUBLIC OF THE PHILIPPINES</div>
+          <h1>DEPARTMENT OF AGRARIAN REFORM</h1>
+          <div class="auth-sub">Eastern Visayas Regional Office VIII — Document Tracking System (DTS)</div>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-auth-tab="login">Sign In</button>
+        <button type="button" class="auth-tab" data-auth-tab="register">Register Account</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="form-login" class="auth-form active">
+        <div class="auth-error" id="login-error"></div>
+        <label class="field">
+          <span>Username</span>
+          <input type="text" name="username" class="input" required autocomplete="username" placeholder="Enter your username (e.g. records, rdsec, ard, lts)" />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <div class="password-wrap">
+            <input type="password" name="password" class="input" required autocomplete="current-password" placeholder="Enter your password" />
+            <button type="button" class="pw-toggle-btn" data-toggle-pw aria-label="Show password">👁️ Show</button>
+          </div>
+        </label>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Sign In to DTS Portal</button>
+
+        <details class="demo-accounts-box">
+          <summary>Quick Demo Accounts (Click any role to auto-fill)</summary>
+          <div class="demo-grid">
+            <button type="button" class="demo-chip" data-demo="records" data-pass="darro8"><strong>Records</strong><span>Box A &amp; E</span></button>
+            <button type="button" class="demo-chip" data-demo="rdsec" data-pass="darro8"><strong>RD Secretary</strong><span>Box B</span></button>
+            <button type="button" class="demo-chip" data-demo="ard" data-pass="darro8"><strong>ARD Secretary</strong><span>Box C</span></button>
+            <button type="button" class="demo-chip" data-demo="sto" data-pass="darro8"><strong>STO Chief</strong><span>Box D (STO)</span></button>
+            <button type="button" class="demo-chip" data-demo="lts" data-pass="darro8"><strong>LTS Chief</strong><span>Box D (LTS)</span></button>
+            <button type="button" class="demo-chip" data-demo="legal" data-pass="darro8"><strong>Legal Chief</strong><span>Box D (LEGAL)</span></button>
+            <button type="button" class="demo-chip" data-demo="arbdsp" data-pass="darro8"><strong>ARBDSP Chief</strong><span>Box D (ARBDSP)</span></button>
+            <button type="button" class="demo-chip" data-demo="rarad" data-pass="darro8"><strong>RARAD / DARAB</strong><span>Box D (RARAD)</span></button>
+            <button type="button" class="demo-chip" data-demo="admin" data-pass="admin123"><strong>System Admin</strong><span>All Access</span></button>
+          </div>
+        </details>
+      </form>
+
+      <!-- OTP VERIFICATION FORM (Step 2 of Sign In) -->
+      <form id="form-otp" class="auth-form">
+        <div class="auth-error" id="otp-error"></div>
+        <div class="otp-info-box" id="otp-info-box">
+          🔐 A 6-digit verification code has been sent from <strong>darrec8@gmail.com</strong> to your account email.
+        </div>
+        <label class="field">
+          <span>Enter 6-Digit OTP Verification Code *</span>
+          <input type="text" name="otp" id="otp-code-input" class="input otp-input" required maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" />
+        </label>
+        <div class="otp-meta-row">
+          <span id="otp-timer-label" class="muted-text">Code expires in 5:00</span>
+          <button type="button" class="btn btn-sm btn-outline" id="btn-resend-otp">🔄 Resend OTP</button>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Verify OTP &amp; Sign In</button>
+        <button type="button" class="btn btn-outline" id="btn-otp-back" style="width:100%;">← Back to Sign In</button>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="form-register" class="auth-form">
+        <div class="auth-error" id="register-error"></div>
+        <div class="auth-success" id="register-success"></div>
+        <div class="form-grid-2">
+          <label class="field">
+            <span>Full Name *</span>
+            <input type="text" name="fullName" class="input" required placeholder="e.g. Maria Clara Santos" />
+          </label>
+          <label class="field">
+            <span>Username *</span>
+            <input type="text" name="username" class="input" required placeholder="e.g. mcsantos.lts" />
+          </label>
+          <label class="field col-span-2">
+            <span>Official Email Address (For Login OTP Verification) *</span>
+            <input type="email" name="email" class="input" required placeholder="e.g. name@gmail.com or office@dar.gov.ph" />
+          </label>
+          <label class="field col-span-2">
+            <span>Account Role (Box Permission) *</span>
+            <select name="role" id="reg-role" class="select" required>
+              <option value="RECORDS">Records Section — Box A (Incoming Encoding) &amp; Box E (Dispatch/Return)</option>
+              <option value="RD_SECRETARY">RD's Secretary — Box B (RD Instructions &amp; Time Frame)</option>
+              <option value="ARD_SECRETARY">ARD / ARD's Secretary — Box C (Assigns Division Chief)</option>
+              <option value="DIVISION_CHIEF">Division Chief / Section Head — Box D (Action Taken: STO, LTS, LEGAL, ARBDSP, RARAD, etc.)</option>
+            </select>
+          </label>
+          <label class="field col-span-2" id="reg-division-wrap" style="display:none;">
+            <span id="reg-division-label">Assigned Division / STO Section *</span>
+            <select name="division" id="reg-division" class="select"></select>
+          </label>
+          <label class="field">
+            <span>Password * (min 6 chars)</span>
+            <div class="password-wrap">
+              <input type="password" name="password" class="input" required minlength="6" placeholder="Create password" />
+              <button type="button" class="pw-toggle-btn" data-toggle-pw aria-label="Show password">👁️ Show</button>
+            </div>
+          </label>
+          <label class="field">
+            <span>Confirm Password *</span>
+            <div class="password-wrap">
+              <input type="password" name="confirmPassword" class="input" required minlength="6" placeholder="Re-enter password" />
+              <button type="button" class="pw-toggle-btn" data-toggle-pw aria-label="Show password">👁️ Show</button>
+            </div>
+          </label>
+        </div>
+        <div class="role-hint-box" id="reg-role-hint">
+          <strong>Box A &amp; Box E Access:</strong> Encodes new Incoming documents and records final dispatch/return. Tracking Status updates automatically.
+        </div>
+        <div class="pending-policy-note">
+          ℹ️ <strong>Email OTP &amp; Admin Confirmation Required:</strong> We will send a 6-digit OTP to verify your email address first, then your account will await confirmation by the DAR RO VIII System Administrator.
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Send Email Verification OTP</button>
+      </form>
+
+      <!-- REGISTRATION OTP VERIFICATION FORM (Step 2 of Register Account) -->
+      <form id="form-reg-otp" class="auth-form">
+        <div class="auth-error" id="reg-otp-error"></div>
+        <div class="otp-info-box" id="reg-otp-info-box">
+          🔐 A 6-digit email verification code has been sent from <strong>darrec8@gmail.com</strong> to your email address.
+        </div>
+        <label class="field">
+          <span>Enter 6-Digit Email Verification Code *</span>
+          <input type="text" name="otp" id="reg-otp-code-input" class="input otp-input" required maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" />
+        </label>
+        <div class="otp-meta-row">
+          <span id="reg-otp-timer-label" class="muted-text">Code expires in 5:00</span>
+          <button type="button" class="btn btn-sm btn-outline" id="btn-resend-reg-otp">🔄 Resend OTP</button>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Verify Email &amp; Submit Registration</button>
+        <button type="button" class="btn btn-outline" id="btn-reg-otp-back" style="width:100%;">← Edit Registration Details</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APPLICATION SHELL (HIDDEN UNTIL AUTHENTICATED) -->
+  <div class="app-shell hidden" id="app-shell">
+    <!-- Institutional Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-crest">
+          <img src="/dar-ro8-logo.jpg" alt="DAR Eastern Visayas Logo" class="brand-logo-img sidebar-logo" />
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">DAR Eastern Visayas</div>
+          <div class="brand-sub">Document Tracking System</div>
+        </div>
+      </div>
+
+      <!-- Logged-in User Card -->
+      <div class="user-profile-box">
+        <div class="user-avatar" id="user-avatar">U</div>
+        <div class="user-meta">
+          <div class="user-name" id="user-fullname">—</div>
+          <div class="user-role-tag" id="user-role-label">—</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary Navigation">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Executive Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="incoming">
+          <span class="nav-icon">📥</span>
+          <span>Incoming DTS</span>
+          <span class="nav-badge" id="badge-incoming" title="Pending Incoming Documents">0</span>
+        </button>
+        <button class="nav-item" data-view="outgoing">
+          <span class="nav-icon">📤</span>
+          <span>Outgoing DTS</span>
+          <span class="nav-badge badge-blue" id="badge-outgoing" title="Outgoing Documents Pending DAR8 Rec. No.">0</span>
+        </button>
+        <div class="nav-group" id="nav-group-issuance">
+          <button class="nav-item nav-group-toggle" id="nav-issuance-toggle" data-view="issuances" type="button">
+            <span class="nav-icon">📜</span>
+            <span>Issuance</span>
+            <span class="nav-badge badge-gold" id="badge-issuances" title="Total Issuances">0</span>
+            <span class="nav-caret" id="issuance-caret">▾</span>
+          </button>
+          <div class="nav-submenu" id="sidebar-issuance-subs"></div>
+        </div>
+        <div class="nav-group" id="nav-group-mailing">
+          <button class="nav-item nav-group-toggle" id="nav-mailing-toggle" data-view="mailing" type="button">
+            <span class="nav-icon">📮</span>
+            <span>Mailing Process</span>
+            <span class="nav-badge badge-blue" id="badge-mailing" title="Total Mailing Records">0</span>
+            <span class="nav-caret" id="mailing-caret">▾</span>
+          </button>
+          <div class="nav-submenu" id="sidebar-mailing-subs"></div>
+        </div>
+        <button class="nav-item" data-view="divisions">
+          <span class="nav-icon">🏢</span>
+          <span>Divisions &amp; STO Portal</span>
+        </button>
+        <button class="nav-item" data-view="tracker">
+          <span class="nav-icon">🔍</span>
+          <span>Track Document</span>
+        </button>
+        <button class="nav-item hidden" id="nav-settings" data-view="settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Settings &amp; Accounts</span>
+          <span class="nav-badge badge-alert hidden" id="badge-pending-users">0</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="office-chip">
+          <strong>Eastern Visayas RO VIII</strong>
+          <span>Sto. Niño Ext., Tacloban City</span>
+          <div id="sidebar-admin-links" class="hidden">
+            <a id="sidebar-sheet-link" href="#" target="_blank" rel="noopener">Open Linked Google Sheet ↗</a>
+            <a id="sidebar-drive-link" href="#" target="_blank" rel="noopener" style="display:block;margin-top:4px;">Open PDF Drive Folder ↗</a>
+          </div>
+        </div>
+        <button class="btn-logout" id="btn-logout">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="main-area">
+      <!-- Top Header -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" id="menu-toggle" type="button" title="Hide / Show Sidebar" aria-label="Hide or Show Sidebar">☰</button>
+          <img src="/dar-ro8-logo.jpg" alt="DAR Eastern Visayas Seal" class="topbar-seal" />
+          <div class="topbar-brand-block">
+            <div class="topbar-kicker">DEPARTMENT OF AGRARIAN REFORM • EASTERN VISAYAS</div>
+            <h1 class="topbar-title" id="page-title">Executive Dashboard</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <div class="topbar-clock-pill" id="topbar-live-clock" title="Philippine Standard Time (Asia/Manila)">
+            <span class="clock-dot"></span>
+            <span id="topbar-clock-text">—</span>
+          </div>
+          <div class="quick-search-wrap">
+            <span class="qs-icon">🔍</span>
+            <input type="text" id="global-track-input" placeholder="Quick track Control No. (e.g. E-11-25-2026-4032)..." />
+            <button class="btn btn-sm qs-btn" id="global-track-btn">Track</button>
+          </div>
+          <button class="btn btn-hero-green" id="btn-new-incoming" title="Records Account Only (Box A)">+ New Incoming</button>
+          <button class="btn btn-hero-blue" id="btn-new-outgoing">+ New Outgoing</button>
+        </div>
+      </header>
+
+      <!-- Role Permission Strip -->
+      <div class="role-banner" id="role-banner"></div>
+
+      <!-- Content Container -->
+      <main class="content" id="content">
+        <!-- VIEW 1: DASHBOARD -->
+        <section class="view active" id="view-dashboard">
+          <div class="dash-year-bar">
+            <div class="dash-year-bar-left">
+              <span class="dash-year-icon">📅</span>
+              <div>
+                <div class="dash-year-title">Dashboard Reporting Year</div>
+                <div class="dash-year-sub" id="dash-year-summary">Showing Calendar Year data across KPIs, charts, quarterly reports, and division matrices.</div>
+              </div>
+            </div>
+            <div class="dash-year-bar-right">
+              <label class="dash-year-label" for="dash-q-year">Select Year:</label>
+              <input type="text" id="dash-q-year" list="dash-q-year-list" class="input dash-year-input" maxlength="9" placeholder="YYYY" title="Select or type any 4-digit year (e.g. 2025, 2026, 2027) or All Years" />
+              <datalist id="dash-q-year-list"></datalist>
+              <button type="button" class="btn btn-sm btn-outline" id="btn-dash-all-years" title="Toggle between All Years and Current Year">All Years</button>
+            </div>
+          </div>
+
+          <div class="kpi-section-grid">
+            <div class="kpi-group">
+              <div class="kpi-group-label green">INCOMING DOCUMENTS</div>
+              <div class="kpi-cards kpi-cards-6">
+                <div class="kpi-card">
+                  <div class="kpi-label">Total Received</div>
+                  <div class="kpi-value" id="kpi-inc-total">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">External (E)</div>
+                  <div class="kpi-value text-green" id="kpi-inc-external">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Internal (I)</div>
+                  <div class="kpi-value text-purple" id="kpi-inc-internal">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Active / Pending</div>
+                  <div class="kpi-value text-amber" id="kpi-inc-active">0</div>
+                </div>
+                <div class="kpi-card alert-card">
+                  <div class="kpi-label">Overdue SLA</div>
+                  <div class="kpi-value text-red" id="kpi-inc-overdue">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Completed</div>
+                  <div class="kpi-value text-green" id="kpi-inc-done">0</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi-group">
+              <div class="kpi-group-label blue">OUTGOING DOCUMENTS</div>
+              <div class="kpi-cards">
+                <div class="kpi-card">
+                  <div class="kpi-label">Total Outgoing</div>
+                  <div class="kpi-value text-blue" id="kpi-out-total">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">In Routing / Approval</div>
+                  <div class="kpi-value text-amber" id="kpi-out-routing">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">At Records Unit</div>
+                  <div class="kpi-value" id="kpi-out-records">0</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Dispatched / Released</div>
+                  <div class="kpi-value text-green" id="kpi-out-dispatched">0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="charts-grid">
+            <div class="card">
+              <div class="card-header">
+                <h3>Document Volume by Division / Section</h3>
+                <div class="chart-legend">
+                  <span><i class="dot green"></i>Incoming</span>
+                  <span><i class="dot blue"></i>Outgoing</span>
+                </div>
+              </div>
+              <div class="chart-body" id="chart-divisions"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Incoming Documents by Automated Status</h3>
+                <span class="muted-text" id="dash-completion-rate">0% Completed</span>
+              </div>
+              <div class="chart-body" id="chart-status"></div>
+            </div>
+          </div>
+
+          <!-- QUARTERLY REPORTING: INCOMING, OUTGOING & MAILING -->
+          <div class="card" style="margin-bottom:20px;">
+            <div class="card-header">
+              <div>
+                <h3>📅 Quarterly Reporting — Incoming, Outgoing &amp; Mailing Process</h3>
+                <p class="card-sub" id="dash-quarterly-sub">Q1–Q4 volume breakdown for Incoming DTS, Outgoing DTS, and PhilPost / JRS Mailings.</p>
+              </div>
+              <div class="header-actions" style="gap:8px;flex-wrap:wrap;">
+                <div class="chart-legend" style="margin-right:6px;">
+                  <span><i class="dot green"></i>Incoming</span>
+                  <span><i class="dot blue"></i>Outgoing</span>
+                  <span><i class="dot gold"></i>Mailing</span>
+                </div>
+                <span class="badge badge-completed" id="dash-q-year-badge" style="font-size:12px;padding:5px 10px;">CY 2026</span>
+                <button type="button" class="btn btn-outline" id="btn-export-quarterly">Export CSV</button>
+                <button type="button" class="btn btn-primary" id="btn-print-quarterly">🖨️ Print Quarterly Report</button>
+              </div>
+            </div>
+            <div class="chart-body" id="chart-quarterly" style="padding-bottom:6px;"></div>
+            <div class="table-wrap">
+              <table class="data-table" id="dash-quarterly-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2" style="vertical-align:middle;">Quarter</th>
+                    <th colspan="4" class="quarterly-group-hdr q-inc">INCOMING DTS</th>
+                    <th colspan="3" class="quarterly-group-hdr q-out">OUTGOING DTS</th>
+                    <th colspan="4" class="quarterly-group-hdr q-mail">MAILING PROCESS</th>
+                    <th rowspan="2" class="num" style="vertical-align:middle;">Grand Total</th>
+                  </tr>
+                  <tr>
+                    <th class="num q-sub-inc">Total</th>
+                    <th class="num q-sub-inc">External</th>
+                    <th class="num q-sub-inc">Internal</th>
+                    <th class="num q-sub-inc">Done</th>
+                    <th class="num q-sub-out">Total</th>
+                    <th class="num q-sub-out">Dispatched</th>
+                    <th class="num q-sub-out">Pending</th>
+                    <th class="num q-sub-mail">Total</th>
+                    <th class="num q-sub-mail">PhilPost</th>
+                    <th class="num q-sub-mail">JRS</th>
+                    <th class="num q-sub-mail">Delivered</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-quarterly-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Division &amp; STO Section Workload Matrix</h3>
+                <p class="card-sub">Click any Division or STO Section row to open its filtered document queue.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="dash-division-table">
+                <thead>
+                  <tr>
+                    <th>Division / Section</th>
+                    <th>Group</th>
+                    <th class="num">Incoming Total</th>
+                    <th class="num">Active</th>
+                    <th class="num">Overdue</th>
+                    <th class="num">Done</th>
+                    <th class="num">Outgoing Total</th>
+                    <th class="num">Pending</th>
+                    <th class="num">Dispatched</th>
+                    <th class="num">Total Docs</th>
+                    <th class="num">Completion</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-division-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 2: INCOMING DTS -->
+        <section class="view" id="view-incoming">
+          <!-- Incoming Summary Cards: Total Received, External (E), Internal (I), My Pending (Box B-E), All Pending, Acted -->
+          <div class="inc-summary-grid inc-summary-6">
+            <button type="button" class="inc-stat-card active" id="card-inc-total" data-card-mode="all">
+              <div class="inc-stat-top">
+                <span class="inc-stat-label">Total Received</span>
+                <span class="inc-stat-badge all" id="inc-stat-year-lbl">All Years</span>
+              </div>
+              <div class="inc-stat-val" id="inc-card-total">0</div>
+              <div class="inc-stat-sub">Show all Incoming</div>
+            </button>
+            <button type="button" class="inc-stat-card" id="card-inc-external" data-cat-pick="External">
+              <div class="inc-stat-top">
+                <span class="inc-stat-label">External</span>
+                <span class="inc-stat-badge ext">Prefix E</span>
+              </div>
+              <div class="inc-stat-val text-green" id="inc-card-external">0</div>
+              <div class="inc-stat-sub">Filter External (E)</div>
+            </button>
+            <button type="button" class="inc-stat-card" id="card-inc-internal" data-cat-pick="Internal">
+              <div class="inc-stat-top">
+                <span class="inc-stat-label">Internal</span>
+                <span class="inc-stat-badge int">Prefix I</span>
+              </div>
+              <div class="inc-stat-val text-purple" id="inc-card-internal">0</div>
+              <div class="inc-stat-sub">Filter Internal (I)</div>
+            </button>
+            <button type="button" class="inc-stat-card my-action-card" id="card-inc-my-pending" data-prog-pick="MY_PENDING">
+              <div class="inc-stat-top">
+                <span class="inc-stat-label">My Action Queue</span>
+                <span class="inc-stat-badge myact" id="inc-my-box-badge">My Box</span>
+              </div>
+              <div class="inc-stat-val text-red" id="inc-card-my-pending">0</div>
+              <div class="inc-stat-sub" id="inc-my-box-sub">Pending for your action</div>
+            </button>
+            <button type="button" class="inc-stat-card" id="card-inc-pending" data-prog-pick="PENDING">
+              <div class="inc-stat-top">
+                <span class="inc-stat-label">All Pending</span>
+                <span class="inc-stat-badge pend">Office-Wide</span>
+              </div>
+              <div class="inc-stat-val text-amber" id="inc-card-pending">0</div>
+              <div class="inc-stat-sub">Show all Pending docs</div>
+            </button>
+            <button type="button" class="inc-stat-card" id="card-inc-acted" data-prog-pick="ACTED">
+              <div class="inc-stat-top">
+                <span class="inc-stat-label">Acted</span>
+                <span class="inc-stat-badge acted">Done / Acted</span>
+              </div>
+              <div class="inc-stat-val text-green" id="inc-card-acted">0</div>
+              <div class="inc-stat-sub">Show all Acted docs</div>
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Incoming Documents Log</h3>
+                <p class="card-sub">Search across all fields or click the dropdown arrow (▾) in any column header to filter and sort.</p>
+              </div>
+              <div class="toolbar-actions" style="flex-wrap:wrap;align-items:center;">
+                <input type="text" id="inc-search" class="input select-sm" style="width:240px;" placeholder="🔍 Search Control No., Subject, Sender..." />
+                <select id="inc-filter-year" class="select select-sm" title="Filter by Year"></select>
+                <select id="inc-filter-cat" class="select select-sm" title="Filter External / Internal">
+                  <option value="ALL">All (Ext &amp; Int)</option>
+                  <option value="External">External (E)</option>
+                  <option value="Internal">Internal (I)</option>
+                </select>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-clear-inc-filters">✕ Clear Filters</button>
+                <button class="btn btn-sm btn-outline" id="btn-export-inc">Export CSV</button>
+                <button class="btn btn-sm btn-primary" id="btn-add-inc-2">+ Encode Incoming (Box A)</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th><div class="th-filter-wrap"><span>DTS Control No.</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="controlNo" title="Sort &amp; Filter DTS Control No.">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Date / Time Recv.</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="dateRecv" title="Sort &amp; Filter Date Received">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Sender &amp; Office</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="sender" title="Sort &amp; Filter Sender &amp; Office">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Type / Subject</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="subject" title="Sort &amp; Filter Type / Subject">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Assigned Division</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="division" title="Sort &amp; Filter Assigned Division">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Time Frame &amp; Due</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="timeframe" title="Sort &amp; Filter Time Frame">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Automated Status</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="status" title="Sort &amp; Filter Status">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>SLA</span><button type="button" class="th-drop-btn" data-hdr-filter="inc" data-col="sla" title="Sort &amp; Filter SLA">▾</button></div></th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="incoming-tbody"></tbody>
+              </table>
+            </div>
+            <div class="table-pagination" id="inc-pagination"></div>
+          </div>
+        </section>
+
+        <!-- VIEW 3: OUTGOING DTS -->
+        <section class="view" id="view-outgoing">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Outgoing Documents Log</h3>
+                <p class="card-sub">Search across all fields or click the dropdown arrow (▾) in any column header to filter and sort.</p>
+              </div>
+              <div class="toolbar-actions" style="flex-wrap:wrap;align-items:center;">
+                <input type="text" id="out-search" class="input select-sm" style="width:240px;" placeholder="🔍 Search Rec No., Subject, Recipient..." />
+                <select id="out-filter-year" class="select select-sm" title="Filter by Year"></select>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-clear-out-filters">✕ Clear Filters</button>
+                <button class="btn btn-sm btn-outline" id="btn-export-out">Export CSV</button>
+                <button class="btn btn-sm btn-blue" id="btn-add-out-2">+ Encode Outgoing</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th><div class="th-filter-wrap"><span>User No. / DAR8 Rec. No.</span><button type="button" class="th-drop-btn" data-hdr-filter="out" data-col="recNo" title="Sort &amp; Filter Outgoing No.">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Date Originated</span><button type="button" class="th-drop-btn" data-hdr-filter="out" data-col="dateOrig" title="Sort &amp; Filter Date Originated">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Originating Unit</span><button type="button" class="th-drop-btn" data-hdr-filter="out" data-col="division" title="Sort &amp; Filter Originating Unit">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Doc Description &amp; Subject</span><button type="button" class="th-drop-btn" data-hdr-filter="out" data-col="subject" title="Sort &amp; Filter Subject">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Recipient (To / Office)</span><button type="button" class="th-drop-btn" data-hdr-filter="out" data-col="recipient" title="Sort &amp; Filter Recipient">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Mode / Dispatch</span><button type="button" class="th-drop-btn" data-hdr-filter="out" data-col="mode" title="Sort &amp; Filter Mode">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span>Status</span><button type="button" class="th-drop-btn" data-hdr-filter="out" data-col="status" title="Sort &amp; Filter Status">▾</button></div></th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="outgoing-tbody"></tbody>
+              </table>
+            </div>
+            <div class="table-pagination" id="out-pagination"></div>
+          </div>
+        </section>
+
+        <!-- VIEW 3B: ISSUANCES (ALI CASE, MEMO, NOTICE & ADMIN CUSTOM SUB-CATEGORIES) -->
+        <section class="view" id="view-issuances">
+          <div class="inc-summary-grid iss-summary-grid" id="iss-summary-cards"></div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 id="iss-view-heading">Issuances Log — All Categories</h3>
+                <p class="card-sub" id="iss-sync-status-line">Track DAR RO VIII Issuances with automated Google Sheet sync (one tab per sub-category) &amp; scanned PDF attachments.</p>
+              </div>
+              <div class="header-actions" style="gap:8px;flex-wrap:wrap;">
+                <input type="search" id="iss-search" class="input" style="width:240px;padding:7px 11px;" placeholder="🔍 Search Issuance No., Subject, Case..." />
+                <select id="iss-filter-cat" class="select select-sm" style="min-width:140px;" title="Filter by Sub-Category"></select>
+                <select id="iss-filter-year" class="select select-sm" style="min-width:110px;" title="Filter by Year"></select>
+                <button type="button" class="btn btn-outline" id="btn-clear-iss-filters" title="Clear all search and column header filters">Clear Filters</button>
+                <button type="button" class="btn btn-outline hidden" id="btn-manage-iss-cols" title="Admin: Add, rename, or delete columns for this Issuance">⚙️ Manage Columns</button>
+                <button type="button" class="btn btn-outline" id="btn-sync-iss-sheets" title="Push all Issuance sub-categories to separate Google Sheet tabs">☁️ Sync to Sheet</button>
+                <button class="btn btn-outline" id="btn-export-iss">Export CSV</button>
+                <button class="btn btn-primary" id="btn-add-issuance">+ New Issuance</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table issuances-table">
+                <thead id="issuances-thead">
+                  <tr>
+                    <th>Issuance No.</th>
+                    <th>Sub-Category</th>
+                    <th>Date Issued</th>
+                    <th>Originating Unit</th>
+                    <th>Subject / Title &amp; Ref.</th>
+                    <th>Issued By</th>
+                    <th>Status</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="issuances-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 3C: MAILING PROCESS (PHILPOST, JRS & CUSTOM COURIERS) -->
+        <section class="view" id="view-mailing">
+          <div class="inc-summary-grid iss-summary-grid" id="mail-summary-cards"></div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 id="mail-view-heading">Mailing Process Log — All Couriers</h3>
+                <p class="card-sub" id="mail-sync-status-line">Track DAR RO VIII PhilPost &amp; JRS mailings, registry/waybill tracking numbers, return cards, and scanned receipts.</p>
+              </div>
+              <div class="header-actions" style="gap:8px;flex-wrap:wrap;">
+                <input type="search" id="mail-search" class="input" style="width:240px;padding:7px 11px;" placeholder="🔍 Search Mailing No., Tracking, Recipient..." />
+                <select id="mail-filter-courier" class="select select-sm" style="min-width:130px;" title="Filter by Courier"></select>
+                <select id="mail-filter-status" class="select select-sm" style="min-width:140px;" title="Filter by Status">
+                  <option value="ALL">All Statuses</option>
+                  <option value="For Mailing">For Mailing</option>
+                  <option value="Mailed / In Transit">Mailed / In Transit</option>
+                  <option value="Delivered / Received">Delivered / Received</option>
+                  <option value="Returned to Sender">Returned to Sender</option>
+                </select>
+                <select id="mail-filter-year" class="select select-sm" style="min-width:110px;" title="Filter by Year"></select>
+                <button type="button" class="btn btn-outline" id="btn-clear-mail-filters">Clear Filters</button>
+                <button type="button" class="btn btn-outline" id="btn-sync-mail-sheets" title="Push Mailing tabs to Google Sheet">☁️ Sync to Sheet</button>
+                <button class="btn btn-outline" id="btn-export-mail">Export CSV</button>
+                <button class="btn btn-primary" id="btn-add-mailing">+ New Mailing</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table issuances-table">
+                <thead id="mailing-thead">
+                  <tr>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Mailing No.</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="mailingNo" title="Sort &amp; Filter Mailing No.">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Courier</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="courier" title="Sort &amp; Filter Courier">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Type of Document</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="docType" title="Sort &amp; Filter Type of Document">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Date Mailed</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="dateMailed" title="Sort &amp; Filter Date Mailed">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Tracking / Waybill No.</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="trackingNo" title="Sort &amp; Filter Tracking No.">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Addressee / Recipient</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="recipientName" title="Sort &amp; Filter Recipient">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Province / Address</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="province" title="Sort &amp; Filter Province">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Subject &amp; Ref.</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="subject" title="Sort &amp; Filter Subject">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Mailed By / Unit</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="mailedBy" title="Sort &amp; Filter Mailed By">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Postage (₱)</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="amount" title="Sort &amp; Filter Amount">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Status</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="status" title="Sort &amp; Filter Status">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Date Received / Return Card</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="dateReceived" title="Sort &amp; Filter Date Received">▾</button></div></th>
+                    <th><div class="th-filter-wrap"><span data-hdr-label>Remarks</span><button type="button" class="th-drop-btn" data-hdr-filter="mail" data-col="remarks" title="Sort &amp; Filter Remarks">▾</button></div></th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="mailing-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 4: DIVISIONS & STO PORTAL -->
+        <section class="view" id="view-divisions">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Select Division or STO Section</h3>
+                <p class="card-sub">Filter all Incoming and Outgoing documents by office across DAR Eastern Visayas Regional Office VIII.</p>
+              </div>
+            </div>
+            <div class="division-pills" id="division-pills"></div>
+          </div>
+
+          <div class="portal-summary-strip" id="portal-summary-strip"></div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 id="portal-inc-title">Incoming Documents</h3>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Control No.</th>
+                    <th>Date Received</th>
+                    <th>Sender / Office</th>
+                    <th>Subject</th>
+                    <th>Time Frame</th>
+                    <th>Automated Status</th>
+                    <th>SLA</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="portal-inc-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 id="portal-out-title">Outgoing Documents</h3>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>User No. / DAR8 Rec. No.</th>
+                    <th>Date Originated</th>
+                    <th>Doc Description</th>
+                    <th>Subject</th>
+                    <th>Recipient</th>
+                    <th>Status</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="portal-out-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 5: DOCUMENT TRACKER & ROUTING TIMELINE -->
+        <section class="view" id="view-tracker">
+          <div class="card tracker-hero">
+            <h2>Track Any Incoming or Outgoing Document</h2>
+            <p>Enter a DAR RO VIII Control Number (e.g., <code>E-11-25-2026-4032</code> or <code>OUT-11-25-2026-0001</code>) or select from recent documents below.</p>
+            <div class="tracker-search-row">
+              <input type="text" id="tracker-input" class="input input-lg" placeholder="Enter DTS Control No. or DAR8 Rec. No..." />
+              <button class="btn btn-primary btn-lg" id="tracker-search-btn">Track Document</button>
+            </div>
+            <div class="tracker-chips" id="tracker-recent-chips"></div>
+          </div>
+
+          <div id="tracker-result"></div>
+        </section>
+
+        <!-- VIEW 6: SETTINGS, ACCOUNTS & GOOGLE SHEETS SYNC -->
+        <section class="view" id="view-settings">
+          <div class="settings-grid">
+            <div class="card">
+              <div class="card-header">
+                <h3>Office Metadata &amp; Signatories</h3>
+              </div>
+              <form id="settings-form" class="form-stack">
+                <div class="form-grid-2">
+                  <label class="field">
+                    <span>Regional Director (Box B Signatory)</span>
+                    <input type="text" id="set-rd" class="input" />
+                  </label>
+                  <label class="field">
+                    <span>Incoming Form Code</span>
+                    <input type="text" id="set-form-code" class="input" />
+                  </label>
+                  <label class="field">
+                    <span>Office Address</span>
+                    <input type="text" id="set-address" class="input" />
+                  </label>
+                  <label class="field">
+                    <span>Telefax</span>
+                    <input type="text" id="set-telefax" class="input" />
+                  </label>
+                  <label class="field">
+                    <span>Website</span>
+                    <input type="text" id="set-website" class="input" />
+                  </label>
+                  <label class="field">
+                    <span>Linked Google Sheet URL</span>
+                    <input type="text" id="set-sheet-url" class="input" readonly />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Google Drive PDF Folder URL (PDF Attachments Destination)</span>
+                  <input type="url" id="set-drive-url" class="input" placeholder="https://drive.google.com/drive/folders/..." />
+                </label>
+                <label class="field">
+                  <span>Google Apps Script Sync Web App URL (Live Cloud Sync for Sheet &amp; Drive PDFs)</span>
+                  <input type="url" id="set-apps-script" class="input" placeholder="https://script.google.com/macros/s/.../exec" />
+                </label>
+                <div class="form-grid-2">
+                  <label class="field">
+                    <span>Official Sender Email (Outgoing Notifications)</span>
+                    <input type="email" id="set-sender-email" class="input" placeholder="darrec8@gmail.com" />
+                  </label>
+                  <label class="field" id="set-smtp-pass-wrap">
+                    <span>Gmail App Password for Sender Email (Admin Only — 16 chars)</span>
+                    <div class="password-wrap">
+                      <input type="password" id="set-smtp-pass" class="input" autocomplete="new-password" placeholder="Paste 16-char Google App Password to send directly" />
+                      <button type="button" class="pw-toggle-btn" data-toggle-pw aria-label="Show password">👁️ Show</button>
+                    </div>
+                  </label>
+                </div>
+                <div class="role-hint-box" id="email-sender-status-box">
+                  Checking official sender email status...
+                </div>
+                <label class="field checkbox-field" id="set-login-otp-wrap">
+                  <span>Login Email OTP Security (2-Step Verification)</span>
+                  <label class="inline-check"><input type="checkbox" id="set-login-otp-enabled" checked /> Require <strong>6-digit Email OTP</strong> sent from <code>darrec8@gmail.com</code> on Login (for accounts with email set)</label>
+                </label>
+                <div class="role-hint-box" id="drive-sync-status-box">
+                  Checking Google Drive upload status...
+                </div>
+                <div class="form-actions" style="gap:10px;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-outline" id="btn-test-email">📧 Test Send Email</button>
+                  <button type="button" class="btn btn-outline" id="btn-test-drive">☁️ Test Google Drive Upload</button>
+                  <button type="submit" class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Box A–E Role Access Matrix</h3>
+              </div>
+              <div class="guide-box">
+                <ul class="rbac-list">
+                  <li><strong>Box A (Records Staff):</strong> Only <code>Records Section</code> account can encode new Incoming documents and edit Box A.</li>
+                  <li><strong>Box B (RD / RD's Secretary):</strong> Only <code>RD Secretary</code> account can enter RD instructions and Time Frame of Action.</li>
+                  <li><strong>Box C (ARD / ARD's Secretary):</strong> Only <code>ARD Secretary</code> account assigns the responsible Division Chief via <em>ARD's Instruction To</em>.</li>
+                  <li><strong>Box D (Division Chief Action):</strong> Only the assigned <code>Division Chief</code> (e.g., <strong>STO, LTS, LEGAL, ARBDSP, RARAD/DARAB</strong>, or STO section) can fill Action Taken.</li>
+                  <li><strong>Box E (Records Dispatch &amp; Return):</strong> Only <code>Records Section</code> account records final dispatch &amp; return receipt.</li>
+                  <li><strong>Issuance &amp; Mailing Process:</strong> Only <code>Records Section</code> &amp; <code>System Admin</code> can encode, edit, delete, or sync entries; <code>RD Office</code>, <code>ARD Office</code>, and <code>Division / Unit Chiefs</code> have <strong>View-Only</strong> access.</li>
+                  <li><strong>Automated Tracking Status:</strong> Automatically computed from Box A → B → C → D → E without manual override.</li>
+                </ul>
+                <p style="margin-top:12px;">Linked Sheet: <a id="settings-sheet-link" href="#" target="_blank" rel="noopener">Open DAR RO VIII Google Sheet ↗</a></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Admin Issuance Sub-Categories Manager -->
+          <div class="card hidden" id="admin-issuance-cats-card">
+            <div class="card-header">
+              <div>
+                <h3>📜 Issuance Sidebar Sub-Categories (Admin Only)</h3>
+                <p class="card-sub">Add, edit, or delete sub-categories under <strong>Issuance</strong> in the sidebar (e.g. ALI Case, Memo, Notice, Special Order, Circular).</p>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input type="text" id="admin-new-iss-cat" class="input" style="width:260px;padding:7px 11px;" placeholder="Enter new sub-category name..." />
+                <button type="button" class="btn btn-primary" id="btn-add-iss-cat">+ Add Sub-Category</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">#</th>
+                    <th>Issuance Sub-Category</th>
+                    <th style="width:120px;">Records</th>
+                    <th class="actions-col" style="width:210px;">Action (Edit / Delete)</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-iss-cats-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Admin Prepared / Signed By Dropdown Manager -->
+          <div class="card hidden" id="admin-signatories-card">
+            <div class="card-header">
+              <div>
+                <h3>✍️ Prepared / Signed By Dropdown Options (Admin Only)</h3>
+                <p class="card-sub">Add or delete official names/titles available in the Outgoing DTS <strong>Prepared / Signed By</strong> dropdown.</p>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input type="text" id="admin-new-signatory" class="input" style="width:280px;padding:7px 11px;" placeholder="Enter full name / position..." />
+                <button type="button" class="btn btn-primary" id="btn-add-signatory">+ Add Option</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">#</th>
+                    <th>Prepared / Signed By Option</th>
+                    <th class="actions-col" style="width:210px;">Action (Edit / Delete)</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-signatories-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Admin Office & DARPO Email Directory (For Furnished Copy Auto-Emails) -->
+          <div class="card hidden" id="admin-emails-card">
+            <div class="card-header">
+              <div>
+                <h3>📧 Office &amp; DARPO Email Directory (Furnished Copy Recipients)</h3>
+                <p class="card-sub">Admin-managed email addresses for all DAR RO VIII Divisions/STO Sections and DARPO Provincial Offices. Selected Furnished Copy offices are automatically emailed when an Outgoing document is released.</p>
+              </div>
+              <button type="button" class="btn btn-primary" id="btn-save-office-emails">Save Email Directory</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width:200px;">Office / DARPO Code</th>
+                    <th>Office / Division Name</th>
+                    <th style="width:140px;">Group</th>
+                    <th style="width:320px;">Official Email Address (Admin Provided)</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-emails-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Admin User Directory -->
+          <div class="card hidden" id="admin-users-card">
+            <div class="card-header">
+              <div>
+                <h3>Registered User Accounts &amp; Admin Confirmation</h3>
+                <p class="card-sub">Confirm or decline newly registered staff accounts before they can sign in.</p>
+              </div>
+              <span class="badge badge-due hidden" id="admin-pending-pill">0 Pending Confirmation</span>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Email (For Login OTP)</th>
+                    <th>Role</th>
+                    <th>Division / Section</th>
+                    <th>Account Status</th>
+                    <th class="actions-col" style="width:240px;">Admin Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL: INCOMING DOCUMENT FORM (BOXES A-E WITH ROLE LOCKS & LIVE AUTO-STATUS) -->
+  <div class="modal-backdrop" id="modal-incoming" aria-hidden="true">
+    <div class="modal modal-xl">
+      <div class="modal-header green">
+        <div>
+          <h2 id="inc-modal-title">Encode Incoming Document</h2>
+          <p>DAR Regional Office VIII — Form DR08-STOR-F-001-REV-01 (Role-Controlled Boxes A–E)</p>
+        </div>
+        <div class="auto-status-pill-wrap">
+          <span class="auto-pill-label">Automated Tracking Status</span>
+          <span id="inc-live-auto-status" class="badge badge-neutral">Received by Records</span>
+        </div>
+        <button class="modal-close" data-close="modal-incoming" aria-label="Close">✕</button>
+      </div>
+
+      <div class="modal-tabs" id="inc-form-tabs">
+        <button type="button" class="tab-btn active" data-tab="inc-box-a" data-box="boxA">Box A: Records Staff</button>
+        <button type="button" class="tab-btn" data-tab="inc-box-b" data-box="boxB">Box B: RD Secretary</button>
+        <button type="button" class="tab-btn" data-tab="inc-box-c" data-box="boxC">Box C: ARD Assignment</button>
+        <button type="button" class="tab-btn" data-tab="inc-box-d" data-box="boxD">Box D: Division Chief</button>
+        <button type="button" class="tab-btn" data-tab="inc-box-e" data-box="boxE">Box E: Records Dispatch</button>
+      </div>
+
+      <form id="form-incoming">
+        <div class="modal-body">
+          <!-- Persistent Attached PDF Bar + Inline PDF Preview (visible across ALL Boxes A-E whenever Box A has a PDF!) -->
+          <div class="pdf-viewer-shell hidden" id="inc-pdf-viewer-bar"></div>
+
+          <!-- BOX A -->
+          <div class="tab-panel active" id="inc-box-a">
+            <div class="box-perm-bar" id="perm-bar-boxA"></div>
+            <fieldset class="box-fieldset" id="fs-boxA">
+              <div class="form-grid-3">
+                <label class="field">
+                  <span>Document Classification *</span>
+                  <select name="docCategory" id="inc-doc-category" class="select" required>
+                    <option value="External">External (E-MM-DD-YYYY-####)</option>
+                    <option value="Internal">Internal (I-MM-DD-YYYY-####)</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>DTS Year *</span>
+                  <input type="text" name="dtsYear" id="inc-dts-year" list="inc-dts-year-list" class="input" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="YYYY" title="Select or type any 4-digit year" />
+                  <datalist id="inc-dts-year-list"></datalist>
+                </label>
+                <label class="field">
+                  <span>DTS Control No. *</span>
+                  <input type="text" name="controlNo" id="inc-control-no" class="input" required placeholder="E-11-26-2026-4035" />
+                </label>
+                <label class="field">
+                  <span>Date Received *</span>
+                  <input type="date" name="dateReceived" id="inc-date-received" class="input" required />
+                </label>
+                <label class="field">
+                  <span>Time Received</span>
+                  <input type="text" name="timeReceived" class="input" placeholder="e.g. 9:30 AM" />
+                </label>
+                <label class="field">
+                  <span>Received By (Records Staff)</span>
+                  <input type="text" name="receivedBy" class="input" placeholder="e.g. ELVIE" />
+                </label>
+                <label class="field">
+                  <span>Sender Name *</span>
+                  <input type="text" name="senderName" class="input" required />
+                </label>
+                <label class="field">
+                  <span>Sender Office / Agency *</span>
+                  <input type="text" name="senderOffice" class="input" required />
+                </label>
+                <label class="field">
+                  <span>Document Type (Type or Select)</span>
+                  <input type="text" name="docType" class="input" list="doctype-suggestions" placeholder="e.g. Memorandum, Special Order, Letter..." />
+                  <datalist id="doctype-suggestions">
+                    <option value="Invitation Letter"></option>
+                    <option value="Memorandum"></option>
+                    <option value="Memorandum Circular"></option>
+                    <option value="Special Order"></option>
+                    <option value="Letter / Communication"></option>
+                    <option value="Endorsement"></option>
+                    <option value="Accomplishment Report"></option>
+                    <option value="Petition / Legal Pleadings"></option>
+                    <option value="DARAB Case / Order"></option>
+                    <option value="Disbursement Voucher / Financial"></option>
+                    <option value="Procurement / BAC Document"></option>
+                    <option value="Travel Order"></option>
+                    <option value="Others"></option>
+                  </datalist>
+                </label>
+                <label class="field">
+                  <span>Thru (Type / Encode freely)</span>
+                  <input type="text" name="thru" class="input" list="thru-suggestions" placeholder="e.g. HAND CARRIED, LBC, Juan..." />
+                  <datalist id="thru-suggestions">
+                    <option value="HAND CARRIED"></option>
+                    <option value="EMAIL"></option>
+                    <option value="COURIER (LBC/JRS/DHL)"></option>
+                    <option value="REGISTERED MAIL"></option>
+                    <option value="ORDINARY MAIL"></option>
+                    <option value="POUCH"></option>
+                    <option value="FAX"></option>
+                  </datalist>
+                </label>
+                <label class="field">
+                  <span>Date of Document</span>
+                  <input type="date" name="dateOfDoc" class="input" />
+                </label>
+                <label class="field">
+                  <span>Ref. No. / Case No. / Title No.</span>
+                  <input type="text" name="refNo" class="input" placeholder="NONE" />
+                </label>
+                <label class="field">
+                  <span>Attachment(s) Description</span>
+                  <input type="text" name="attachments" id="inc-attachments-text" class="input" placeholder="NO ATTACHMENT" />
+                </label>
+                <label class="field col-span-3">
+                  <span>Subject *</span>
+                  <textarea name="subject" class="textarea" rows="3" required></textarea>
+                </label>
+                <div class="field col-span-3">
+                  <span>Upload PDF Attachment (Max 100 MB, .pdf only — Saves to <a id="boxa-drive-link" href="#" target="_blank" rel="noopener">Google Drive PDF Folder ↗</a>)</span>
+                  <div class="pdf-upload-box" id="inc-pdf-upload-wrap">
+                    <input type="file" id="inc-pdf-input" accept="application/pdf,.pdf" class="pdf-file-input" />
+                    <button type="button" class="btn btn-sm btn-outline" id="btn-pick-pdf">📎 Choose PDF File</button>
+                    <span class="muted-text" id="inc-pdf-status">No PDF uploaded yet</span>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- BOX B -->
+          <div class="tab-panel" id="inc-box-b">
+            <div class="box-perm-bar" id="perm-bar-boxB"></div>
+            <fieldset class="box-fieldset" id="fs-boxB">
+              <div class="stamp-row">
+                <button type="button" class="btn btn-sm btn-outline" data-stamp="boxB">⏱️ Stamp My Name &amp; Current Date/Time</button>
+              </div>
+              <div class="form-grid-2">
+                <label class="field">
+                  <span>RD Date / Time Received</span>
+                  <input type="datetime-local" name="rdDateTime" class="input" />
+                </label>
+                <label class="field">
+                  <span>Received By (RD's Secretary)</span>
+                  <input type="text" name="rdReceivedBy" class="input" placeholder="RD Secretary" />
+                </label>
+                <label class="field">
+                  <span>RD's Instructions To (Route to ARDO/ARDA or Division)</span>
+                  <select name="rdInstructionsTo" class="select" data-list="divisionsBlank"></select>
+                </label>
+                <label class="field">
+                  <span>RD Time Frame of Action</span>
+                  <select name="rdTimeFrame" class="select" data-list="timeFrames"></select>
+                </label>
+                <label class="field col-span-2">
+                  <span>RD's Instructions / Remarks</span>
+                  <textarea name="rdInstructions" class="textarea" rows="3"></textarea>
+                </label>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- BOX C -->
+          <div class="tab-panel" id="inc-box-c">
+            <div class="box-perm-bar" id="perm-bar-boxC"></div>
+            <fieldset class="box-fieldset" id="fs-boxC">
+              <div class="stamp-row">
+                <button type="button" class="btn btn-sm btn-outline" data-stamp="boxC">⏱️ Stamp My Name &amp; Current Date/Time</button>
+              </div>
+              <div class="form-grid-2">
+                <label class="field">
+                  <span>ARD Date / Time Received</span>
+                  <input type="datetime-local" name="ardDateTime" class="input" />
+                </label>
+                <label class="field">
+                  <span>Received By (ARD's Secretary)</span>
+                  <input type="text" name="ardReceivedBy" class="input" placeholder="ARDO / ARDA Secretary" />
+                </label>
+                <label class="field">
+                  <span>ARD's Instruction To (Assign Division Chief: STO, LTS, LEGAL, ARBDSP, RARAD, etc.)</span>
+                  <select name="ardInstructionsTo" class="select" data-list="divisionsBlank"></select>
+                </label>
+                <label class="field">
+                  <span>ARD Time Frame of Action</span>
+                  <select name="ardTimeFrame" class="select" data-list="timeFrames"></select>
+                </label>
+                <label class="field col-span-2">
+                  <span>ARD's Instructions / Remarks</span>
+                  <textarea name="ardInstructions" class="textarea" rows="3"></textarea>
+                </label>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- BOX D -->
+          <div class="tab-panel" id="inc-box-d">
+            <div class="box-perm-bar" id="perm-bar-boxD"></div>
+            <fieldset class="box-fieldset" id="fs-boxD">
+              <div class="stamp-row">
+                <button type="button" class="btn btn-sm btn-outline" data-stamp="boxD">⏱️ Stamp My Name &amp; Current Date/Time</button>
+              </div>
+              <div class="form-grid-2">
+                <label class="field">
+                  <span>Assigned Division / Section (Auto-assigned from Box B/C)</span>
+                  <select name="assignedDivision" class="select" data-list="divisionsBlank"></select>
+                </label>
+                <label class="field">
+                  <span>Division Date / Time Received</span>
+                  <input type="datetime-local" name="divDateTime" class="input" />
+                </label>
+                <label class="field">
+                  <span>Received By (Division / Section)</span>
+                  <input type="text" name="divReceivedBy" class="input" />
+                </label>
+                <label class="field">
+                  <span>Division Chief Name</span>
+                  <input type="text" name="divChiefName" class="input" />
+                </label>
+                <label class="field col-span-2">
+                  <span>Division Chief Instruction / Action Taken</span>
+                  <textarea name="divActionTaken" class="textarea" rows="3"></textarea>
+                </label>
+                <label class="field">
+                  <span>Date Acted (Setting this auto-advances status to "For Dispatch")</span>
+                  <input type="date" name="dateActed" class="input" />
+                </label>
+                <label class="field">
+                  <span>Chosen Mode of Transmission</span>
+                  <select name="transmissionMode" class="select" data-list="transModes"></select>
+                </label>
+                <label class="field">
+                  <span>Action Addressed To &amp; Address</span>
+                  <input type="text" name="addressedTo" class="input" />
+                </label>
+                <label class="field">
+                  <span>Please use Pouch Service for CC</span>
+                  <input type="text" name="pouchCC" class="input" />
+                </label>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- BOX E -->
+          <div class="tab-panel" id="inc-box-e">
+            <div class="box-perm-bar" id="perm-bar-boxE"></div>
+            <div class="auto-status-info-box">
+              <div>
+                <strong>Automated Current Tracking Status:</strong>
+                <span id="inc-boxe-auto-status" class="badge badge-neutral" style="margin-left:8px;">Received by Records</span>
+              </div>
+              <div class="sub-line" style="margin-top:6px;">
+                Computed automatically: Box A → <em>Received by Records</em> → Box B → <em>For RD / ARD Action</em> → Box C → <em>Routed to Division</em> → Box D → <em>In Progress / For Dispatch</em> → Box E → <em>Completed / Returned to Records</em>.
+              </div>
+            </div>
+            <fieldset class="box-fieldset" id="fs-boxE">
+              <div class="stamp-row" style="gap:8px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-outline" data-stamp="boxE">⏱️ Stamp Returned Today &amp; My Name</button>
+                <button type="button" class="btn btn-sm btn-blue" id="btn-send-inc-boxe-email">📧 Send Email to Recipients</button>
+              </div>
+              <div class="form-grid-2">
+                <!-- Switched: Date & Time Returned + Released By FIRST, then Returned As, Dispatch Mode & Details -->
+                <label class="field">
+                  <span>Date &amp; Time Returned / Released</span>
+                  <input type="datetime-local" name="dateReturnedAt" class="input" />
+                </label>
+                <label class="field">
+                  <span>Released By (Records Staff)</span>
+                  <input type="text" name="releasedBy" class="input" placeholder="e.g. Elvie (Records Staff)" />
+                </label>
+                <label class="field">
+                  <span>Returned &amp; Duly Received by Records Unit As</span>
+                  <select name="returnedAs" class="select" data-list="returnedTypes"></select>
+                </label>
+                <label class="field">
+                  <span>Records Dispatch Mode (Box E)</span>
+                  <select name="recordsDispatchMode" class="select" data-list="dispatchModes"></select>
+                </label>
+                <label class="field col-span-2">
+                  <span>Dispatch Details / Email / Waybill / Tracking No.</span>
+                  <input type="text" name="dispatchDetails" class="input" />
+                </label>
+
+                <!-- Upload PDF File for Reply / Action Taken -->
+                <div class="field col-span-2">
+                  <span>Upload PDF File — Reply / Action Taken (up to 100 MB — Saves to <a href="https://drive.google.com/drive/folders/1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC?usp=sharing" target="_blank" rel="noopener">Google Drive PDF Folder ↗</a> &amp; Sends via Email)</span>
+                  <div class="pdf-upload-box" id="inc-reply-pdf-upload-box">
+                    <input type="file" id="inc-reply-pdf-input" accept="application/pdf,.pdf" class="pdf-file-input" />
+                    <button type="button" class="btn btn-sm btn-outline" id="btn-pick-inc-reply-pdf">📎 Choose Reply / Action PDF</button>
+                    <span id="inc-reply-pdf-status" class="muted-text">No reply / action PDF uploaded yet</span>
+                  </div>
+                  <div class="pdf-viewer-shell hidden" id="inc-reply-pdf-viewer-bar" style="margin-top:10px;margin-bottom:0;"></div>
+                </div>
+
+                <!-- Multi-Select Recipient (To) Picker (Same as Outgoing — RO VIII Sections + 6 DARPO Provincial Offices) -->
+                <div class="field col-span-2">
+                  <span>Recipient (To) * (Select Multiple RO VIII Sections &amp; DARPO Provincial Offices — Sends to Admin Email Directory)</span>
+                  <div class="multi-drop-wrap" id="inc-boxe-recip-wrap">
+                    <button type="button" class="multi-drop-trigger" id="inc-boxe-recip-trigger" aria-expanded="false">
+                      <span id="inc-boxe-recip-summary">Select RO VIII sections / DARPOs or type custom recipient / email...</span>
+                      <span class="multi-drop-caret">▾</span>
+                    </button>
+                    <div class="multi-drop-menu hidden" id="inc-boxe-recip-menu">
+                      <div class="multi-drop-top">
+                        <div style="display:flex;gap:6px;">
+                          <input type="text" id="inc-boxe-recip-search" class="input" style="padding:6px 9px;font-size:12px;flex:1;" placeholder="Search section / DARPO or type email..." />
+                          <button type="button" class="btn btn-sm btn-primary hidden" id="btn-inc-recip-add-custom" style="white-space:nowrap;">+ Add</button>
+                        </div>
+                        <div class="multi-drop-quick">
+                          <button type="button" id="btn-inc-recip-all-darpo">All 6 DARPOs</button>
+                          <button type="button" id="btn-inc-recip-all-ro">All RO VIII</button>
+                          <button type="button" id="btn-inc-recip-clear">Clear</button>
+                        </div>
+                      </div>
+                      <div class="multi-drop-list" id="inc-boxe-recip-list"></div>
+                    </div>
+                  </div>
+                  <div class="fc-chips-row" id="inc-boxe-recip-chips"></div>
+                </div>
+
+                <label class="field checkbox-field col-span-2">
+                  <span>Archive Completed Record</span>
+                  <label class="inline-check"><input type="checkbox" name="archived" /> Mark status as <strong>Archived</strong></label>
+                </label>
+              </div>
+            </fieldset>
+            <div class="role-hint-box" id="inc-boxe-email-status-box" style="margin-top:14px;">
+              Select Recipient (To) offices above and upload a Reply / Action PDF to email them from <code>darrec8@gmail.com</code>.
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close="modal-incoming">Close</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-incoming">Save My Box Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: OUTGOING DOCUMENT FORM -->
+  <div class="modal-backdrop" id="modal-outgoing" aria-hidden="true">
+    <div class="modal modal-xl">
+      <div class="modal-header blue">
+        <div>
+          <h2 id="out-modal-title">Encode Outgoing Document</h2>
+          <p>DAR Regional Office VIII — DTS-OUTGOING (Boxes A through E)</p>
+        </div>
+        <button class="modal-close" data-close="modal-outgoing" aria-label="Close">✕</button>
+      </div>
+
+      <div class="modal-tabs" id="out-form-tabs">
+        <button type="button" class="tab-btn active" data-tab="out-box-ab">Box A &amp; B: Source, Type &amp; Recipient</button>
+        <button type="button" class="tab-btn" data-tab="out-box-c">Box C: Counter-Sign &amp; Approval</button>
+        <button type="button" class="tab-btn" data-tab="out-box-d" id="out-tab-box-d">Box D: Records Release &amp; DAR8 Rec. No.</button>
+        <button type="button" class="tab-btn" data-tab="out-box-e" id="out-tab-box-e">Box E: Returned to Originating Office</button>
+      </div>
+
+      <form id="form-outgoing">
+        <input type="hidden" name="id" id="out-record-id" />
+        <div class="modal-body">
+          <!-- Scanned PDF Attachment Viewer Bar (visible across all Outgoing Boxes when a scanned PDF is uploaded) -->
+          <div class="pdf-viewer-shell hidden" id="out-pdf-viewer-bar"></div>
+
+          <div class="tab-panel active" id="out-box-ab">
+            <div class="form-grid-3">
+              <label class="field">
+                <span>DTS Year *</span>
+                <input type="text" name="dtsYear" id="out-dts-year" list="inc-dts-year-list" class="input" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="YYYY" title="Select or type any 4-digit year" />
+              </label>
+              <label class="field">
+                <span>User / Office Outgoing No. *</span>
+                <input type="text" name="userDocNo" id="out-user-doc-no" class="input" required placeholder="LTS-11-26-2026-0001" />
+              </label>
+              <label class="field">
+                <span>Date Originated *</span>
+                <input type="date" name="dateOriginated" class="input" required />
+              </label>
+              <label class="field">
+                <span>Originating Division / Section *</span>
+                <select name="originatingDivision" id="out-originating-div" class="select" data-list="divisionsOthers" required></select>
+              </label>
+              <label class="field">
+                <span>Document Description (Box B) *</span>
+                <select name="docDescription" class="select" data-list="outDocTypes" required></select>
+              </label>
+              <label class="field">
+                <span>Other Description (if Others)</span>
+                <input type="text" name="otherDescription" class="input" />
+              </label>
+              <label class="field col-span-3">
+                <span>Prepared / Signed By</span>
+                <select name="preparedBy" id="out-prepared-by" class="select"></select>
+              </label>
+              <label class="field col-span-3">
+                <span>Subject *</span>
+                <textarea name="subject" class="textarea" rows="3" required></textarea>
+              </label>
+
+              <!-- Moved from Box D right after Subject -->
+              <label class="field">
+                <span>Chosen Mode of Transmission</span>
+                <select name="transmissionMode" class="select" data-list="transModes"></select>
+              </label>
+              <div class="field col-span-2">
+                <span>Recipient (To) * (Select Multiple RO VIII Sections &amp; DARPO Provincial Offices — Sends to Admin Email Directory)</span>
+                <input type="hidden" name="recipientTo" id="out-recipient-to" />
+                <div class="multi-drop-wrap" id="out-furnished-wrap">
+                  <button type="button" class="multi-drop-trigger" id="out-furnished-trigger" aria-expanded="false">
+                    <span id="out-furnished-summary">Select RO VIII sections / DARPOs or type custom recipient...</span>
+                    <span class="multi-drop-caret">▾</span>
+                  </button>
+                  <div class="multi-drop-menu hidden" id="out-furnished-menu">
+                    <div class="multi-drop-top">
+                      <div style="display:flex;gap:6px;">
+                        <input type="text" id="out-furnished-search" class="input" style="padding:6px 9px;font-size:12px;flex:1;" placeholder="Search section / DARPO or type custom recipient..." />
+                        <button type="button" class="btn btn-sm btn-primary hidden" id="btn-fc-add-custom" style="white-space:nowrap;">+ Add</button>
+                      </div>
+                      <div class="multi-drop-quick">
+                        <button type="button" id="btn-fc-all-darpo">All 6 DARPOs</button>
+                        <button type="button" id="btn-fc-all-ro">All RO VIII</button>
+                        <button type="button" id="btn-fc-clear">Clear</button>
+                      </div>
+                    </div>
+                    <div class="multi-drop-list" id="out-furnished-list"></div>
+                  </div>
+                </div>
+                <div class="fc-chips-row" id="out-furnished-chips"></div>
+              </div>
+              <label class="field">
+                <span>Recipient Office / Agency</span>
+                <input type="text" name="recipientOffice" class="input" placeholder="e.g. DAR RO VIII &amp; PROVINCIAL OFFICES" />
+              </label>
+              <label class="field col-span-2">
+                <span>Recipient Address</span>
+                <input type="text" name="recipientAddress" class="input" placeholder="e.g. Eastern Visayas Region VIII" />
+              </label>
+
+              <label class="field col-span-2">
+                <span>Attachment(s) (if any)</span>
+                <input type="text" name="attachments" class="input" placeholder="NONE" />
+              </label>
+              <label class="field">
+                <span>Remarks</span>
+                <input type="text" name="remarks" class="input" />
+              </label>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="out-box-c">
+            <div class="form-grid-2">
+              <label class="field">
+                <span>Counter Signature By (Specify Name)</span>
+                <input type="text" name="counterSignBy" class="input" placeholder="e.g. ARDO / ARDA" />
+              </label>
+              <label class="field">
+                <span>Approved By (Specify Name)</span>
+                <input type="text" name="approvedBy" class="input" placeholder="ATTY. ROBERT ANTHONY P. YU" />
+              </label>
+              <label class="field">
+                <span>Counter-Sign Instruction / Remarks</span>
+                <textarea name="counterSignRemarks" class="textarea" rows="3"></textarea>
+              </label>
+              <label class="field">
+                <span>Approval Instruction / Remarks</span>
+                <textarea name="approvalRemarks" class="textarea" rows="3"></textarea>
+              </label>
+            </div>
+          </div>
+
+          <!-- NEW BOX D: RECORDS RELEASE & DAR8 REC. NO. (FIRST BEFORE RETURN!) -->
+          <div class="tab-panel" id="out-box-d">
+            <div class="box-perm-bar" id="out-perm-bar-boxD"></div>
+            <div class="form-grid-2" style="margin-bottom:14px;">
+              <label class="field">
+                <span>Current Tracking Status *</span>
+                <select name="status" class="select" data-list="outStatuses" required></select>
+              </label>
+              <div class="field" style="justify-content:flex-end;">
+                <span style="visibility:hidden;">Actions</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;" id="out-boxd-quick-actions">
+                  <button type="button" class="btn btn-sm btn-primary" id="btn-assign-dar8-recno">🔢 Assign Next DAR8 Rec. No.</button>
+                  <button type="button" class="btn btn-sm btn-outline" id="btn-stamp-out-records">⏱️ Stamp Records Receipt</button>
+                  <button type="button" class="btn btn-sm btn-blue" id="btn-send-furnished-email">📧 Send Email to Recipients</button>
+                </div>
+              </div>
+            </div>
+            <fieldset class="box-fieldset" id="out-fs-boxD">
+              <div class="form-grid-2">
+                <label class="field">
+                  <span>DAR8 Rec. No. (Assigned by Records Unit ONLY)</span>
+                  <input type="text" name="recNo" id="out-rec-no" class="input" placeholder="Pending — Assigned by Records Unit" />
+                </label>
+                <div class="field">
+                  <span>Final Dispatch Mode (Select Multiple)</span>
+                  <input type="hidden" name="finalDispatchMode" id="out-dispatch-hidden" />
+                  <div class="multi-drop" id="out-dispatch-wrap">
+                    <button type="button" class="multi-drop-trigger" id="out-dispatch-trigger" aria-expanded="false">
+                      <span id="out-dispatch-trigger-text">— Select Dispatch Mode(s) —</span>
+                      <span class="multi-drop-caret">▾</span>
+                    </button>
+                    <div class="multi-drop-panel hidden" id="out-dispatch-menu">
+                      <div class="multi-drop-top" style="padding:6px 8px;">
+                        <div class="multi-drop-quick">
+                          <button type="button" id="btn-dispatch-clear">Clear Selection</button>
+                        </div>
+                      </div>
+                      <div class="multi-drop-list" id="out-dispatch-list" style="max-height:220px;"></div>
+                    </div>
+                  </div>
+                  <div class="fc-chips-row" id="out-dispatch-chips"></div>
+                </div>
+                <label class="field">
+                  <span>Records Date Received</span>
+                  <input type="date" name="recordsDateReceived" class="input" />
+                </label>
+                <label class="field">
+                  <span>Records Time Received</span>
+                  <input type="text" name="recordsTimeReceived" class="input" placeholder="e.g. 1:30 PM" />
+                </label>
+                <label class="field">
+                  <span>Records Received By and Released By</span>
+                  <input type="text" name="recordsReceivedBy" class="input" placeholder="e.g. ELVIE" />
+                </label>
+                <label class="field">
+                  <span>Date &amp; Time Dispatched / Released</span>
+                  <input type="datetime-local" name="dateDispatched" class="input" />
+                </label>
+                <label class="field col-span-2">
+                  <span>Dispatch Details / Email / Waybill No.</span>
+                  <input type="text" name="dispatchDetails" class="input" />
+                </label>
+                <div class="field col-span-2">
+                  <span>Upload Scanned File (PDF up to 100 MB — Saves to <a href="https://drive.google.com/drive/folders/1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC?usp=sharing" target="_blank" rel="noopener">Google Drive PDF Folder ↗</a> &amp; Sends to Concerned Email)</span>
+                  <div class="pdf-upload-box" id="out-pdf-upload-box">
+                    <input type="file" id="out-pdf-input" accept="application/pdf,.pdf" class="pdf-file-input" />
+                    <button type="button" class="btn btn-sm btn-outline" id="btn-pick-out-pdf">📎 Choose Scanned PDF File</button>
+                    <span id="out-pdf-status" class="muted-text">No scanned file uploaded yet</span>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+            <div class="role-hint-box" id="out-email-status-box" style="margin-top:14px;">
+              Select Recipient (To) offices in Box A &amp; B to email them automatically upon release.
+            </div>
+          </div>
+
+          <!-- NEW BOX E: RETURNED TO ORIGINATING OFFICE (AFTER RELEASE!) -->
+          <div class="tab-panel" id="out-box-e">
+            <div class="box-perm-bar" id="out-perm-bar-boxE"></div>
+            <div class="stamp-row">
+              <button type="button" class="btn btn-sm btn-outline" id="btn-stamp-out-return">⏱️ Stamp Return Date &amp; Name</button>
+            </div>
+            <fieldset class="box-fieldset" id="out-fs-boxE">
+              <div class="form-grid-2">
+                <label class="field">
+                  <span>Returned To Originating Office (After Release)</span>
+                  <select name="returnedToOffice" class="select" data-list="divisionsBlank"></select>
+                </label>
+                <label class="field">
+                  <span>Date / Received Back By</span>
+                  <input type="text" name="dateReceivedBack" class="input" placeholder="YYYY-MM-DD / Name" />
+                </label>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" data-close="modal-outgoing">Cancel</button>
+          <button type="submit" class="btn btn-blue">Save Outgoing Document</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ISSUANCE FORM -->
+  <div class="modal-backdrop" id="modal-issuance" aria-hidden="true">
+    <div class="modal modal-xl">
+      <div class="modal-header green">
+        <div>
+          <h2 id="iss-modal-title">Encode New Issuance</h2>
+          <p>DAR Eastern Visayas Regional Office VIII — Official Issuances Registry</p>
+        </div>
+        <button class="modal-close" data-close="modal-issuance" aria-label="Close">✕</button>
+      </div>
+      <form id="form-issuance">
+        <input type="hidden" name="id" id="iss-record-id" />
+        <div class="modal-body">
+          <div class="box-perm-bar locked hidden" id="iss-readonly-banner">👁️ <strong>View-Only Access:</strong> RD Office, ARD Office, and Division/Unit accounts can view Issuance details and PDFs. Only Records Section &amp; System Admin can encode or edit Issuances.</div>
+          <div class="pdf-viewer-shell hidden" id="iss-pdf-viewer-bar"></div>
+          <div class="form-grid-3">
+            <label class="field">
+              <span>Issuance Sub-Category *</span>
+              <select name="category" id="iss-category-select" class="select" required></select>
+            </label>
+            <label class="field">
+              <span id="iss-lbl-no">Issuance No. *</span>
+              <input type="text" name="issuanceNo" id="iss-no-input" class="input" required placeholder="ALI-2026-0001" />
+            </label>
+            <label class="field">
+              <span id="iss-lbl-date">Date Issued *</span>
+              <input type="date" name="dateIssued" class="input" required />
+            </label>
+            <label class="field">
+              <span>Year *</span>
+              <input type="text" name="issuanceYear" id="iss-year" list="inc-dts-year-list" class="input" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="YYYY" title="Select or type any 4-digit year" />
+            </label>
+            <label class="field">
+              <span>Originating Office / Unit</span>
+              <select name="originatingDivision" class="select" data-list="divisionsOthers"></select>
+            </label>
+            <label class="field">
+              <span id="iss-lbl-by">Issued By / Signatory</span>
+              <select name="issuedBy" id="iss-issued-by" class="select"></select>
+            </label>
+            <div class="field col-span-2" id="iss-dockets-field-wrap">
+              <input type="hidden" name="refNo" id="iss-refno-hidden" />
+              <div class="multi-names-box" id="iss-dockets-box">
+                <div class="multi-names-head">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:700;color:var(--dar-dark);">Case No. / Reference No. (Docket No.)</span>
+                    <span class="multi-names-count" id="iss-dockets-count">1 / 50</span>
+                    <span class="muted-text" style="font-size:11px;">(Enter or paste lines — up to 50)</span>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-primary" id="btn-iss-docket-add">+ Add Case No.</button>
+                </div>
+                <div class="multi-names-grid multi-dockets-grid" id="iss-dockets-grid"></div>
+              </div>
+            </div>
+            <div class="field" id="iss-province-field-wrap">
+              <span>Province</span>
+              <select id="iss-province-select" class="select">
+                <option value="">— Select Province —</option>
+                <option value="Biliran">Biliran</option>
+                <option value="Eastern Samar">Eastern Samar</option>
+                <option value="Leyte">Leyte</option>
+                <option value="Northern Samar">Northern Samar</option>
+                <option value="Samar">Samar</option>
+                <option value="Southern Leyte">Southern Leyte</option>
+                <option value="__CUSTOM__">✏️ Other (Encode Custom)...</option>
+              </select>
+              <input type="text" id="iss-province-other" class="input hidden" style="margin-top:6px;" placeholder="Encode custom Province..." />
+            </div>
+            <label class="field col-span-3">
+              <span id="iss-lbl-subject">Subject / Title *</span>
+              <textarea name="subject" class="textarea" rows="3" required placeholder="Enter issuance title, ALI case caption, memo subject, or notice description..."></textarea>
+            </label>
+            <div id="iss-custom-fields-wrap" class="iss-custom-fields-wrap col-span-3 hidden"></div>
+            <label class="field col-span-3">
+              <span id="iss-lbl-remarks">Remarks / Distribution Notes</span>
+              <input type="text" name="remarks" class="input" placeholder="Optional remarks or distribution notes" />
+            </label>
+            <div class="field col-span-3">
+              <span>Recipient (To) (Select Multiple RO VIII Sections &amp; DARPO Provincial Offices — Sends to Admin Email Directory)</span>
+              <div class="multi-drop" id="iss-recip-dropdown">
+                <button type="button" class="multi-drop-trigger" id="iss-recip-trigger">
+                  <span id="iss-recip-trigger-text">Select RO VIII Sections &amp; DARPO Offices...</span>
+                  <span class="multi-drop-caret">▾</span>
+                </button>
+                <div class="multi-drop-panel hidden" id="iss-recip-panel">
+                  <div class="multi-drop-top">
+                    <div style="display:flex;gap:6px;">
+                      <input type="text" id="iss-recip-search" class="input" style="padding:6px 9px;font-size:12.5px;flex:1;" placeholder="Search section / DARPO or type custom recipient..." />
+                      <button type="button" class="btn btn-sm btn-primary hidden" id="btn-iss-recip-add-custom">+ Add</button>
+                    </div>
+                    <div class="multi-drop-quick">
+                      <button type="button" id="btn-iss-recip-all-darpo">All 6 DARPOs</button>
+                      <button type="button" id="btn-iss-recip-all-ro">All RO VIII</button>
+                      <button type="button" id="btn-iss-recip-clear">Clear</button>
+                    </div>
+                  </div>
+                  <div class="multi-drop-list" id="iss-recip-list"></div>
+                </div>
+              </div>
+              <div class="fc-chips-row" id="iss-recip-chips"></div>
+            </div>
+            <div class="field col-span-3">
+              <span>Upload Scanned Issuance PDF (up to 100 MB — Saves to <a href="https://drive.google.com/drive/folders/1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC?usp=sharing" target="_blank" rel="noopener">Google Drive PDF Folder ↗</a>)</span>
+              <div class="pdf-upload-box">
+                <input type="file" id="iss-pdf-input" accept="application/pdf,.pdf" class="pdf-file-input" />
+                <button type="button" class="btn btn-sm btn-outline" id="btn-pick-iss-pdf">📎 Choose Issuance PDF File</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-send-iss-email">📧 Send Email to Recipients</button>
+                <span id="iss-pdf-status" class="muted-text">No scanned PDF uploaded yet</span>
+              </div>
+            </div>
+            <div class="role-hint-box col-span-3" id="iss-email-status-box">
+              Select Recipient (To) offices above and upload a scanned PDF to email them from <code>darrec8@gmail.com</code>.
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-issuance" data-close="modal-issuance">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-issuance">Save Issuance</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADMIN MANAGE ISSUANCE COLUMNS -->
+  <div class="modal-backdrop" id="modal-iss-columns" aria-hidden="true">
+    <div class="modal modal-lg">
+      <div class="modal-header green">
+        <div>
+          <h2 id="iss-cols-modal-title">Manage Issuance Columns (Admin)</h2>
+          <p>Add custom columns, rename, reorder, or delete columns for each Issuance sub-category</p>
+        </div>
+        <button class="modal-close" data-close="modal-iss-columns" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-3" style="margin-bottom:14px;align-items:end;">
+          <label class="field">
+            <span>Issuance Sub-Category</span>
+            <select id="iss-cols-cat-select" class="select"></select>
+          </label>
+          <label class="field">
+            <span>New Custom Column Name</span>
+            <input type="text" id="iss-cols-new-name" class="input" placeholder="e.g. Petitioner, Docket No., Effectivity Date" />
+          </label>
+          <div class="field">
+            <span>Field Type &amp; Add</span>
+            <div style="display:flex;gap:8px;">
+              <select id="iss-cols-new-type" class="select" style="width:168px;">
+                <option value="text">Text</option>
+                <option value="date">Date</option>
+                <option value="date_range">Date Range (From–To)</option>
+                <option value="datetime">Date &amp; Time</option>
+                <option value="multi_names">Names (Up to 10)</option>
+              </select>
+              <button type="button" class="btn btn-primary" id="btn-iss-col-add" style="white-space:nowrap;">+ Add Column</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="iss-cols-restore-wrap" class="iss-col-restore-row hidden"></div>
+
+        <div class="table-wrap" style="border:1px solid var(--border);border-radius:10px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:52px;">#</th>
+                <th>Column Header Name</th>
+                <th style="width:120px;">Type</th>
+                <th class="actions-col" style="width:240px;">Order / Rename / Delete</th>
+              </tr>
+            </thead>
+            <tbody id="iss-cols-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button type="button" class="btn btn-outline" id="btn-iss-cols-reset">↺ Reset Default Columns</button>
+        <button type="button" class="btn btn-primary" data-close="modal-iss-columns">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MAILING PROCESS FORM (PHILPOST / JRS) -->
+  <div class="modal-backdrop" id="modal-mailing" aria-hidden="true">
+    <div class="modal modal-xl">
+      <div class="modal-header blue">
+        <div>
+          <h2 id="mail-modal-title">Encode New Mailing</h2>
+          <p>DAR Eastern Visayas Regional Office VIII — Mailing Process (PhilPost &amp; JRS)</p>
+        </div>
+        <button class="modal-close" data-close="modal-mailing" aria-label="Close">✕</button>
+      </div>
+      <form id="form-mailing">
+        <input type="hidden" name="id" id="mail-record-id" />
+        <div class="modal-body">
+          <div class="box-perm-bar locked hidden" id="mail-readonly-banner">👁️ <strong>View-Only Access:</strong> RD Office, ARD Office, and Division/Unit accounts can view Mailing Process details and receipt PDFs. Only Records Section &amp; System Admin can encode or edit Mailing records.</div>
+          <div class="pdf-viewer-shell hidden" id="mail-pdf-viewer-bar"></div>
+          <div class="form-grid-3">
+            <label class="field">
+              <span>Courier / Mailing Service *</span>
+              <select name="courier" id="mail-courier-select" class="select" required></select>
+            </label>
+            <label class="field">
+              <span>Year *</span>
+              <input type="text" name="mailingYear" id="mail-year" list="inc-dts-year-list" class="input" required inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="YYYY" title="Select or type any 4-digit year" />
+            </label>
+            <label class="field">
+              <span>Mailing / Control No. *</span>
+              <input type="text" name="mailingNo" id="mail-no-input" class="input" required placeholder="PHILPOST-2026-0001" />
+            </label>
+            <label class="field">
+              <span>Date Mailed *</span>
+              <input type="date" name="dateMailed" class="input" required />
+            </label>
+            <label class="field">
+              <span>Type of Document</span>
+              <input type="text" name="docType" list="mail-doc-types-list" class="input" placeholder="Select or type Document Type..." />
+              <datalist id="mail-doc-types-list">
+                <option value="Order"></option>
+                <option value="Finality"></option>
+                <option value="RCLUPPI"></option>
+                <option value="Resolution"></option>
+                <option value="Erratum"></option>
+                <option value="Writ of Execution"></option>
+                <option value="Interlocutory"></option>
+                <option value="Memo"></option>
+                <option value="Notice"></option>
+                <option value="Letter / Communication"></option>
+                <option value="Endorsement"></option>
+                <option value="Special Order"></option>
+              </datalist>
+            </label>
+            <label class="field">
+              <span>Document / Case Ref. No.</span>
+              <input type="text" name="docRefNo" class="input" placeholder="e.g. ORDER-2026-0001 / OUT-11-27-2026-0001" />
+            </label>
+            <label class="field">
+              <span>Mailing Status *</span>
+              <select name="status" class="select" required>
+                <option value="For Mailing">For Mailing</option>
+                <option value="Mailed / In Transit">Mailed / In Transit</option>
+                <option value="Delivered / Received">Delivered / Received</option>
+                <option value="Returned to Sender">Returned to Sender</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Province</span>
+              <input type="text" name="province" list="mail-province-list" class="input" placeholder="Select or type Province..." />
+              <datalist id="mail-province-list">
+                <option value="Biliran"></option>
+                <option value="Eastern Samar"></option>
+                <option value="Leyte"></option>
+                <option value="Northern Samar"></option>
+                <option value="Samar"></option>
+                <option value="Southern Leyte"></option>
+              </datalist>
+            </label>
+            <label class="field">
+              <span>Complete Mailing Address</span>
+              <input type="text" name="recipientAddress" class="input" placeholder="Street / Brgy / Municipality / City / Province / ZIP" />
+            </label>
+            <div class="field col-span-3">
+              <div class="multi-names-box" id="mail-addressees-box">
+                <div class="multi-names-head">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:700;color:var(--dar-dark);">Addressees / Recipients</span>
+                    <span class="multi-names-count" id="mail-addressees-count">1 addressee</span>
+                    <span class="muted-text" style="font-size:11.5px;">(Each addressee has their own Tracking/Waybill No. &amp; Return Card Date)</span>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-primary" id="btn-mail-add-addressee">+ Add Addressee</button>
+                </div>
+                <div class="mail-addr-hdr">
+                  <span>#</span>
+                  <span>Addressee / Recipient Name *</span>
+                  <span>Tracking / Registry / Waybill No.</span>
+                  <span>Date Received / Return Card</span>
+                  <span></span>
+                </div>
+                <div class="mail-addr-rows" id="mail-addressees-rows"></div>
+              </div>
+            </div>
+            <label class="field col-span-3">
+              <span>Subject / Particulars *</span>
+              <textarea name="subject" class="textarea" rows="2" required placeholder="Document subject, ALI case title, or contents mailed..."></textarea>
+            </label>
+            <label class="field">
+              <span>Originating Unit</span>
+              <select name="originatingDivision" class="select" data-list="divisionsOthers"></select>
+            </label>
+            <label class="field">
+              <span>Mailed By</span>
+              <input type="text" name="mailedBy" class="input" placeholder="Name of staff who mailed" />
+            </label>
+            <label class="field">
+              <span>Postage / Amount (₱)</span>
+              <input type="text" name="amount" class="input" placeholder="e.g. 185.00" />
+            </label>
+            <label class="field col-span-3">
+              <span>Remarks</span>
+              <input type="text" name="remarks" class="input" placeholder="Optional mailing or return card remarks" />
+            </label>
+            <div class="field col-span-3">
+              <span>Recipient (To) — Concerned Offices (Select Multiple RO VIII Sections &amp; DARPO Provincial Offices)</span>
+              <div class="multi-drop" id="mail-recip-dropdown">
+                <button type="button" class="multi-drop-trigger" id="mail-recip-trigger">
+                  <span id="mail-recip-trigger-text">Select RO VIII Sections &amp; DARPO Offices...</span>
+                  <span class="multi-drop-caret">▾</span>
+                </button>
+                <div class="multi-drop-panel hidden" id="mail-recip-panel">
+                  <div class="multi-drop-top">
+                    <div style="display:flex;gap:6px;">
+                      <input type="text" id="mail-recip-search" class="input" style="padding:6px 9px;font-size:12.5px;flex:1;" placeholder="Search section / DARPO or type custom office..." />
+                      <button type="button" class="btn btn-sm btn-primary hidden" id="btn-mail-recip-add-custom">+ Add</button>
+                    </div>
+                    <div class="multi-drop-quick">
+                      <button type="button" id="btn-mail-recip-all-darpo">All 6 DARPOs</button>
+                      <button type="button" id="btn-mail-recip-all-ro">All RO VIII</button>
+                      <button type="button" id="btn-mail-recip-clear">Clear</button>
+                    </div>
+                  </div>
+                  <div class="multi-drop-list" id="mail-recip-list"></div>
+                </div>
+              </div>
+              <div class="fc-chips-row" id="mail-recip-chips"></div>
+            </div>
+            <div class="field col-span-3">
+              <span>Upload Scanned Registry Receipt / Waybill / Return Card PDF (up to 100 MB)</span>
+              <div class="pdf-upload-box">
+                <input type="file" id="mail-pdf-input" accept="application/pdf,.pdf" class="pdf-file-input" />
+                <button type="button" class="btn btn-sm btn-outline" id="btn-pick-mail-pdf">📎 Choose Receipt / Return Card PDF</button>
+                <span id="mail-pdf-status" class="muted-text">No scanned PDF uploaded yet</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-mailing" data-close="modal-mailing">Cancel</button>
+          <button type="submit" class="btn btn-blue" id="btn-save-mailing">Save Mailing Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: OFFICIAL PRINT SLIP PREVIEW -->
+  <div class="modal-backdrop" id="modal-print" aria-hidden="true">
+    <div class="modal modal-print-wrap">
+      <div class="modal-header dark no-print">
+        <div>
+          <h2 id="print-modal-title">Official DTS Slip Preview</h2>
+          <p>Formatted for single-page A4 / Letter Portrait printing</p>
+        </div>
+        <div class="print-modal-actions">
+          <button class="btn btn-primary" id="btn-trigger-print">🖨️ Print / Save PDF</button>
+          <button class="modal-close" data-close="modal-print" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div class="print-canvas" id="print-canvas"></div>
+    </div>
+  </div>
+
+  <!-- Header Column Filter Dropdown Popover (Excel/Sheets-style) -->
+  <div class="hdr-popover hidden" id="hdr-filter-popover" role="dialog" aria-label="Column Filter"></div>
+
+  <!-- Global Loading Overlay (shown on every action) -->
+  <div class="global-loader hidden no-print" id="global-loader" role="status" aria-live="polite" aria-busy="true">
+    <div class="loader-card">
+      <div class="loader-ring-wrap">
+        <div class="loader-ring"></div>
+        <img src="/dar-ro8-logo.jpg" alt="DAR Eastern Visayas" class="loader-logo" />
+      </div>
+      <div class="loader-title" id="loader-title">Processing...</div>
+      <div class="loader-sub" id="loader-sub">DAR Eastern Visayas Regional Office VIII</div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

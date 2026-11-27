@@ -1,0 +1,8 @@
+node_modules/
+uploads/
+data/dts-db.json
+google-credentials.json
+.env
+.env.local
+.vercel/
+*.log

@@ -1,0 +1,11 @@
+{
+  "name": "dar-ro8-dts",
+  "version": "1.0.0",
+  "description": "DAR Eastern Visayas Regional Office VIII — Document Tracking System (Incoming & Outgoing)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "DAR Eastern Visayas Regional Office VIII",
+  "license": "MIT"
+}
