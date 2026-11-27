@@ -9720,6 +9720,108 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btn-pick-pdf").addEventListener("click", () => {
     document.getElementById("inc-pdf-input").click();
   });
+  async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || "").replace(/^data:[^;]+;base64,/i, ""));
+      reader.onerror = () => reject(new Error("Failed to read PDF file."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function safeParseJsonResponse(res) {
+    const txt = await res.text();
+    try {
+      return JSON.parse(txt);
+    } catch (_) {
+      if (res.status === 413 || /request entity too large/i.test(txt)) {
+        return { ok: false, statusCode: 413, error: "File exceeds Vercel's 4.5 MB limit." };
+      }
+      return { ok: false, statusCode: res.status || 500, error: txt.slice(0, 180) || `HTTP ${res.status}` };
+    }
+  }
+
+  async function uploadPdfDirectlyToAppsScript(file, filename, controlNo, label) {
+    const gasUrl = String((state.meta && state.meta.appsScriptUrl) || "").trim();
+    if (!gasUrl) {
+      throw new Error("PDF exceeds Vercel's 4.5 MB limit. Configure the Google Apps Script Web App URL in Settings to upload up to 35 MB directly to Google Drive.");
+    }
+    if (file.size > 35 * 1024 * 1024) {
+      throw new Error("Max PDF size for direct Google Drive cloud upload is 35 MB (use localhost server for up to 100 MB).");
+    }
+    const base64 = await fileToBase64(file);
+    return withLoading(
+      `Uploading ${label} to Google Drive (${formatFileSize(file.size)})...`,
+      async () => {
+        const res = await fetch(gasUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "uploadPdf",
+            filename,
+            controlNo: controlNo || "",
+            base64,
+            folderId: (state.meta && state.meta.driveFolderId) || "1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC",
+            uploadedBy: (currentUser && currentUser.fullName) || "Records Staff",
+          }),
+        });
+        const data = await safeParseJsonResponse(res);
+        if (!data.ok || !data.file) throw new Error(data.error || "Direct Google Drive upload failed.");
+        return data;
+      },
+      filename
+    );
+  }
+
+  async function uploadPdfSmart(file, filename, controlNo, label = "PDF") {
+    const isGasRuntime = typeof google !== "undefined" && google.script && google.script.run;
+    if (isGasRuntime) {
+      if (file.size > 35 * 1024 * 1024) {
+        throw new Error("In Google Apps Script mode, max PDF size is 35 MB (use localhost server for up to 100 MB).");
+      }
+      const base64 = await fileToBase64(file);
+      const res = await apiFetch("/api/upload-pdf", {
+        method: "POST",
+        loadingText: `Uploading ${label} (${formatFileSize(file.size)})...`,
+        loadingSub: filename,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, base64, controlNo: controlNo || "" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+      return data;
+    }
+
+    const host = String(window.location.hostname || "").toLowerCase();
+    const isLocalHost = host === "localhost" || host === "127.0.0.1" || /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(host);
+    const gasUrl = String((state.meta && state.meta.appsScriptUrl) || "").trim();
+
+    // On cloud serverless hosts (e.g. Vercel's 4.5 MB payload cap), route PDFs > 3.5 MB straight to Google Drive via Apps Script
+    if (!isLocalHost && file.size > 3.5 * 1024 * 1024 && gasUrl) {
+      return uploadPdfDirectlyToAppsScript(file, filename, controlNo, label);
+    }
+
+    const res = await apiFetch("/api/upload-pdf", {
+      method: "POST",
+      loadingText: `Uploading ${label} (${formatFileSize(file.size)})...`,
+      loadingSub: filename,
+      headers: {
+        "Content-Type": "application/pdf",
+        "X-Filename": encodeURIComponent(filename),
+        "X-Control-No": encodeURIComponent(controlNo || ""),
+      },
+      body: file,
+    });
+
+    if (res.status === 413 && gasUrl) {
+      return uploadPdfDirectlyToAppsScript(file, filename, controlNo, label);
+    }
+    const data = await safeParseJsonResponse(res);
+    if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+    return data;
+  }
+
+  // Incoming Box A PDF Upload
   document.getElementById("inc-pdf-input").addEventListener("change", async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -9734,45 +9836,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("inc-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const isGasRuntime = typeof google !== "undefined" && google.script && google.script.run;
-      let res;
-      if (isGasRuntime) {
-        if (file.size > 35 * 1024 * 1024) {
-          throw new Error("In Google Apps Script mode, max PDF size is 35 MB (use localhost server for up to 100 MB).");
-        }
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading PDF (${formatFileSize(file.size)})...`,
-          loadingSub: file.name,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: file.name,
-            base64,
-            controlNo: incForm.elements.controlNo.value.trim(),
-          }),
-        });
-      } else {
-        // Fast zero-overhead binary streaming upload (supports up to 100 MB smoothly)
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading PDF (${formatFileSize(file.size)})...`,
-          loadingSub: file.name,
-          headers: {
-            "Content-Type": "application/pdf",
-            "X-Filename": encodeURIComponent(file.name),
-            "X-Control-No": encodeURIComponent(incForm.elements.controlNo.value.trim()),
-          },
-          body: file,
-        });
-      }
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+      const data = await uploadPdfSmart(file, file.name, incForm.elements.controlNo.value.trim(), "PDF");
       currentAttachmentFile = data.file;
       pdfPreviewExpanded = true;
       const attText = incForm.elements.attachments;
@@ -9834,38 +9898,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("inc-reply-pdf-status");
     statusEl.textContent = `Uploading Reply PDF (${formatFileSize(file.size)})...`;
     try {
-      const isGasRuntime = typeof google !== "undefined" && google.script && google.script.run;
-      let res;
-      if (isGasRuntime) {
-        if (file.size > 35 * 1024 * 1024) throw new Error("Max PDF size in Apps Script mode is 35 MB.");
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading Reply PDF (${formatFileSize(file.size)})...`,
-          loadingSub: `${ctrl}_REPLY.pdf`,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: `${ctrl}_REPLY.pdf`, base64, controlNo: ctrl }),
-        });
-      } else {
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading Reply PDF (${formatFileSize(file.size)})...`,
-          loadingSub: `${ctrl}_REPLY.pdf`,
-          headers: {
-            "Content-Type": "application/pdf",
-            "X-Filename": encodeURIComponent(`${ctrl}_REPLY.pdf`),
-            "X-Control-No": encodeURIComponent(ctrl),
-          },
-          body: file,
-        });
-      }
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+      const data = await uploadPdfSmart(file, `${ctrl}_REPLY.pdf`, ctrl, "Reply PDF");
       currentIncReplyAttachmentFile = data.file;
       incReplyPdfPreviewExpanded = true;
       renderIncReplyPdfBar();
@@ -10107,40 +10140,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("out-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const isGasRuntime = typeof google !== "undefined" && google.script && google.script.run;
-      let res;
-      if (isGasRuntime) {
-        if (file.size > 35 * 1024 * 1024) {
-          throw new Error("In Google Apps Script mode, max PDF size is 35 MB (use localhost server for up to 100 MB).");
-        }
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading Scanned PDF (${formatFileSize(file.size)})...`,
-          loadingSub: file.name,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, base64, controlNo: docCode }),
-        });
-      } else {
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading Scanned PDF (${formatFileSize(file.size)})...`,
-          loadingSub: file.name,
-          headers: {
-            "Content-Type": "application/pdf",
-            "X-Filename": encodeURIComponent(file.name),
-            "X-Control-No": encodeURIComponent(docCode),
-          },
-          body: file,
-        });
-      }
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+      const data = await uploadPdfSmart(file, file.name, docCode, "Scanned PDF");
       currentOutAttachmentFile = data.file;
       outPdfPreviewExpanded = true;
       if (!outForm.elements.attachments.value.trim() || outForm.elements.attachments.value.trim().toUpperCase() === "NONE") {
@@ -10351,40 +10351,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("iss-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const isGasRuntime = typeof google !== "undefined" && google.script && google.script.run;
-      let res;
-      if (isGasRuntime) {
-        if (file.size > 35 * 1024 * 1024) {
-          throw new Error("In Google Apps Script mode, max PDF size is 35 MB (use localhost server for up to 100 MB).");
-        }
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading Issuance PDF (${formatFileSize(file.size)})...`,
-          loadingSub: file.name,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, base64, controlNo: docCode }),
-        });
-      } else {
-        res = await apiFetch("/api/upload-pdf", {
-          method: "POST",
-          loadingText: `Uploading Issuance PDF (${formatFileSize(file.size)})...`,
-          loadingSub: file.name,
-          headers: {
-            "Content-Type": "application/pdf",
-            "X-Filename": encodeURIComponent(file.name),
-            "X-Control-No": encodeURIComponent(docCode),
-          },
-          body: file,
-        });
-      }
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+      const data = await uploadPdfSmart(file, file.name, docCode, "Issuance PDF");
       currentIssAttachmentFile = data.file;
       issPdfPreviewExpanded = true;
       renderIssPdfAttachmentBar();
@@ -10587,19 +10554,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("mail-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const res = await apiFetch("/api/upload-pdf", {
-        method: "POST",
-        loadingText: `Uploading Receipt PDF (${formatFileSize(file.size)})...`,
-        loadingSub: file.name,
-        headers: {
-          "Content-Type": "application/pdf",
-          "X-Filename": encodeURIComponent(file.name),
-          "X-Control-No": encodeURIComponent(docCode),
-        },
-        body: file,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+      const data = await uploadPdfSmart(file, file.name, docCode, "Receipt PDF");
       currentMailAttachmentFile = data.file;
       mailPdfPreviewExpanded = true;
       renderMailPdfAttachmentBar();
