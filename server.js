@@ -12,6 +12,14 @@ const crypto = require("crypto");
 const { URL } = require("url");
 
 const IS_VERCEL = !!process.env.VERCEL;
+const DEFAULT_APPS_SCRIPT_URL =
+  process.env.APPS_SCRIPT_URL ||
+  "https://script.google.com/macros/s/AKfycbwxfLa-mnY35lISPmZerof8-KF32bppJXRw-bTuqroo_sp38USS5HcDifeICzWOgE42/exec";
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  "dar-ro8-dts-hmac-1aGcUZqjCA0GSfKoxVLdNG64Q6udj2AZniRRK79r9OZE";
+let lastSheetHydrateAt = 0;
+let pendingSheetSavePromise = null;
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -102,14 +110,46 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
 function verifyPassword(password, stored) {
   if (!stored || !stored.includes(":")) return false;
   const [salt, key] = stored.split(":");
+  if (key.length === 64) {
+    // Also accept Google Apps Script SHA-256 password hashes seamlessly
+    const sha = crypto.createHash("sha256").update(`${salt}:${String(password)}`).digest();
+    const keyBuf = Buffer.from(key, "hex");
+    return sha.length === keyBuf.length && crypto.timingSafeEqual(sha, keyBuf);
+  }
   const derived = crypto.scryptSync(String(password), salt, 64);
   const keyBuf = Buffer.from(key, "hex");
   if (derived.length !== keyBuf.length) return false;
   return crypto.timingSafeEqual(derived, keyBuf);
 }
 
-function createToken() {
+function createToken(userId = "") {
+  if (userId) {
+    const payload = Buffer.from(
+      JSON.stringify({ uid: String(userId), exp: Date.now() + 7 * 24 * 60 * 60 * 1000 }),
+      "utf8"
+    ).toString("base64url");
+    const sig = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+    return `v1.${payload}.${sig}`;
+  }
   return crypto.randomBytes(32).toString("hex");
+}
+
+function verifyStatelessToken(token) {
+  if (!token || !token.startsWith("v1.")) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [, payload, sig] = parts;
+  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  const a = Buffer.from(sig, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!parsed || !parsed.uid || (parsed.exp && Date.now() > parsed.exp)) return null;
+    return String(parsed.uid);
+  } catch (_) {
+    return null;
+  }
 }
 
 function sanitizeUser(u) {
@@ -367,7 +407,7 @@ function buildSeedDatabase() {
 function readDb() {
   if (!fs.existsSync(DB_PATH)) {
     const seeded = buildSeedDatabase();
-    writeDb(seeded);
+    writeDbLocalOnly(seeded);
   }
   const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
   let dirty = false;
@@ -513,18 +553,64 @@ function readDb() {
   return db;
 }
 
-function writeDb(db) {
+function writeDbLocalOnly(db) {
   try { fs.mkdirSync(path.dirname(DB_PATH), { recursive: true }); } catch (_) {}
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf8");
 }
 
+function getActiveAppsScriptUrl(db = null) {
+  const fromDb = db && db.meta && String(db.meta.appsScriptUrl || "").trim();
+  if (fromDb) return fromDb;
+  try {
+    if (fs.existsSync(DB_PATH)) {
+      const cur = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+      if (cur && cur.meta && cur.meta.appsScriptUrl) return String(cur.meta.appsScriptUrl).trim();
+    }
+  } catch (_) {}
+  return DEFAULT_APPS_SCRIPT_URL;
+}
+
+async function hydrateDbFromSheet(force = false) {
+  const gasUrl = getActiveAppsScriptUrl();
+  if (!gasUrl) return { ok: false, reason: "No Apps Script URL" };
+  const now = Date.now();
+  if (!force && fs.existsSync(DB_PATH) && now - lastSheetHydrateAt < 10000) {
+    return { ok: true, cached: true };
+  }
+  const res = await postToAppsScript(gasUrl, { action: "getFullDb" }, 20000);
+  if (res.synced && res.json && res.json.ok && res.json.db && typeof res.json.db === "object") {
+    writeDbLocalOnly(res.json.db);
+    lastSheetHydrateAt = Date.now();
+    return { ok: true, hydrated: true };
+  }
+  return { ok: false, reason: (res.json && res.json.error) || res.reason || "Could not load DB from Google Sheet" };
+}
+
+function writeDb(db) {
+  writeDbLocalOnly(db);
+  const gasUrl = getActiveAppsScriptUrl(db);
+  if (gasUrl) {
+    const p = postToAppsScript(gasUrl, { action: "saveFullDb", db }, 25000).catch(() => ({ synced: false }));
+    pendingSheetSavePromise = p;
+  }
+}
+
 function sendJson(res, status, data) {
   const body = JSON.stringify(data);
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
-  });
-  res.end(body);
+  const finish = () => {
+    res.writeHead(status, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(body);
+  };
+  if (IS_VERCEL && pendingSheetSavePromise) {
+    const p = pendingSheetSavePromise;
+    pendingSheetSavePromise = null;
+    p.then(finish, finish);
+    return;
+  }
+  finish();
 }
 
 const MAX_PDF_BYTES = 100 * 1024 * 1024; // 100 MB max PDF attachment size
@@ -570,9 +656,11 @@ function parseBody(req, maxBytes = 5 * 1024 * 1024) {
 function getAuthUser(req, db) {
   const authHeader = req.headers["authorization"] || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token || !sessions.has(token)) return null;
-  const userId = sessions.get(token);
-  return db.users.find((u) => u.id === userId) || null;
+  if (!token) return null;
+  let userId = sessions.has(token) ? sessions.get(token) : verifyStatelessToken(token);
+  if (!userId) return null;
+  const u = db.users.find((x) => x.id === userId) || null;
+  return u && (u.approvalStatus || "APPROVED") === "APPROVED" ? u : null;
 }
 
 function buildOutgoingUserPrefix(user, divisionOverride = "") {
@@ -1973,6 +2061,14 @@ async function handleApi(req, res, urlObj) {
   const method = req.method;
 
   try {
+    if (IS_VERCEL) {
+      const needFresh =
+        !fs.existsSync(DB_PATH) ||
+        pathname === "/api/state" ||
+        pathname.startsWith("/api/auth/") ||
+        method !== "GET";
+      await hydrateDbFromSheet(needFresh);
+    }
     const db = readDb();
 
     // PUBLIC: Divisions list (needed on Registration screen)
@@ -2174,7 +2270,7 @@ async function handleApi(req, res, urlObj) {
         });
       }
 
-      const token = createToken();
+      const token = createToken(user.id);
       sessions.set(token, user.id);
       return sendJson(res, 200, {
         ok: true,
@@ -2215,7 +2311,7 @@ async function handleApi(req, res, urlObj) {
       if (!user || user.approvalStatus !== "APPROVED") {
         return sendJson(res, 403, { error: "Account is no longer active." });
       }
-      const token = createToken();
+      const token = createToken(user.id);
       sessions.set(token, user.id);
       return sendJson(res, 200, { ok: true, token, user: sanitizeUser(user) });
     }
@@ -3355,8 +3451,17 @@ if (IS_VERCEL) {
   const server = http.createServer(requestHandler);
   server.listen(PORT, HOST, () => {
     console.log(`DAR RO VIII Document Tracking System running at http://localhost:${PORT}`);
-    // Automated Google Sheets Issuance & Mailing sync on startup + every 2 minutes in background
+    // Automated Google Sheets live DB + Issuance & Mailing sync on startup + every 2 minutes in background
     setTimeout(() => {
+      try {
+        const curDb = readDb();
+        const gasUrl = getActiveAppsScriptUrl(curDb);
+        if (gasUrl && ((curDb.incoming || []).length > 0 || (curDb.outgoing || []).length > 0 || (curDb.issuances || []).length > 0)) {
+          postToAppsScript(gasUrl, { action: "saveFullDb", db: curDb }, 25000).then((r) => {
+            if (r && r.synced && r.json && r.json.ok) console.log(`[Auto-Sync] Synced full DTS database to Google Sheet.`);
+          }).catch(() => {});
+        }
+      } catch (_) {}
       syncAllIssuancesToSheet().then((r) => {
         if (r && r.ok) console.log(`[Auto-Sync] Synced ${r.syncedCount} Issuance tab(s) to Google Sheet.`);
       }).catch(() => {});

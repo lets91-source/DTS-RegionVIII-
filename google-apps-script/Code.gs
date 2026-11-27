@@ -117,7 +117,23 @@ function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
     let result = { ok: false, error: "Unknown action" };
-    if (body.action === "upsertIncoming") result = writeIncomingRowDirect_(body.record);
+    if (body.action === "getFullDb") result = { ok: true, db: readDb_() };
+    else if (body.action === "saveFullDb") {
+      if (body.db && typeof body.db === "object") {
+        const lock = LockService.getScriptLock();
+        lock.waitLock(25000);
+        try {
+          writeDb_(body.db);
+          if (Array.isArray(body.db.users)) syncUsersSheet_(body.db.users);
+          result = { ok: true, savedAt: getManilaNow_() };
+        } finally {
+          try { lock.releaseLock(); } catch (_) {}
+        }
+      } else {
+        result = { ok: false, error: "Missing db payload" };
+      }
+    }
+    else if (body.action === "upsertIncoming") result = writeIncomingRowDirect_(body.record);
     else if (body.action === "upsertOutgoing") result = writeOutgoingRowDirect_(body.record);
     else if (body.action === "deleteIncoming") result = deleteIncomingRowDirect_(body.controlNo);
     else if (body.action === "deleteOutgoing") result = deleteOutgoingRowDirect_(body.recNo);
@@ -1057,7 +1073,7 @@ function gasApiDispatch(req) {
       return { ok: true, otpRequired: true, challengeId: regChallengeId, maskedEmail: email.replace(/(^.).*(@.*$)/, "$1***$2"), expiresInSeconds: 300 };
     }
 
-    if (method === "POST" && pathname === "/api/auth/verify-register-otp") {
+    if (method === "POST" && (pathname === "/api/auth/verify-register-otp" || pathname === "/api/auth/register/verify-otp")) {
       const raw = CacheService.getScriptCache().get("dts_reg_" + String(body.challengeId || ""));
       if (!raw) return { ok: false, statusCode: 400, error: "Verification code expired. Please register again." };
       const reg = JSON.parse(raw);
@@ -1081,7 +1097,7 @@ function gasApiDispatch(req) {
       return { ok: true, pendingApproval: true, message: "Email verified & registration submitted! Your account awaits confirmation by the System Administrator.", user: sanitizeUser_(newUser) };
     }
 
-    if (method === "POST" && pathname === "/api/auth/resend-register-otp") {
+    if (method === "POST" && (pathname === "/api/auth/resend-register-otp" || pathname === "/api/auth/register/resend-otp")) {
       const raw = CacheService.getScriptCache().get("dts_reg_" + String(body.challengeId || ""));
       if (!raw) return { ok: false, statusCode: 400, error: "Session expired. Please register again." };
       const reg = JSON.parse(raw);
