@@ -6086,7 +6086,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  async function uploadPdfDirectlyToAppsScript(file, filename, controlNo, label) {
+  async function uploadPdfDirectlyToAppsScript(file, filename, controlNo, label, folderMeta = {}) {
     const gasUrl = String((state.meta && state.meta.appsScriptUrl) || "").trim();
     if (!gasUrl) {
       throw new Error("PDF exceeds Vercel's 4.5 MB limit. Configure the Google Apps Script Web App URL in Settings to upload up to 35 MB directly to Google Drive.");
@@ -6105,6 +6105,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             action: "uploadPdf",
             filename,
             controlNo: controlNo || "",
+            docYear: String(folderMeta.docYear || "").trim(),
+            transaction: String(folderMeta.transaction || "").trim(),
+            subFolder: String(folderMeta.subFolder || "").trim(),
             base64,
             folderId: (state.meta && state.meta.driveFolderId) || "1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC",
             uploadedBy: (currentUser && currentUser.fullName) || "Records Staff",
@@ -6118,7 +6121,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  async function uploadPdfSmart(file, filename, controlNo, label = "PDF") {
+  async function uploadPdfSmart(file, filename, controlNo, label = "PDF", folderMeta = {}) {
+    const docYear = String(folderMeta.docYear || "").trim();
+    const transaction = String(folderMeta.transaction || "").trim();
+    const subFolder = String(folderMeta.subFolder || "").trim();
     const isGasRuntime = typeof google !== "undefined" && google.script && google.script.run;
     if (isGasRuntime) {
       if (file.size > 35 * 1024 * 1024) {
@@ -6130,7 +6136,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         loadingText: `Uploading ${label} (${formatFileSize(file.size)})...`,
         loadingSub: filename,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename, base64, controlNo: controlNo || "" }),
+        body: JSON.stringify({ filename, base64, controlNo: controlNo || "", docYear, transaction, subFolder }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
@@ -6143,7 +6149,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // On cloud serverless hosts (e.g. Vercel's 4.5 MB payload cap), route PDFs > 3.5 MB straight to Google Drive via Apps Script
     if (!isLocalHost && file.size > 3.5 * 1024 * 1024 && gasUrl) {
-      return uploadPdfDirectlyToAppsScript(file, filename, controlNo, label);
+      return uploadPdfDirectlyToAppsScript(file, filename, controlNo, label, { docYear, transaction, subFolder });
     }
 
     const res = await apiFetch("/api/upload-pdf", {
@@ -6154,12 +6160,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         "Content-Type": "application/pdf",
         "X-Filename": encodeURIComponent(filename),
         "X-Control-No": encodeURIComponent(controlNo || ""),
+        "X-Doc-Year": encodeURIComponent(docYear),
+        "X-Transaction": encodeURIComponent(transaction),
+        "X-Subfolder": encodeURIComponent(subFolder),
       },
       body: file,
     });
 
     if (res.status === 413 && gasUrl) {
-      return uploadPdfDirectlyToAppsScript(file, filename, controlNo, label);
+      return uploadPdfDirectlyToAppsScript(file, filename, controlNo, label, { docYear, transaction, subFolder });
     }
     const data = await safeParseJsonResponse(res);
     if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
@@ -6181,7 +6190,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("inc-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const data = await uploadPdfSmart(file, file.name, incForm.elements.controlNo.value.trim(), "PDF");
+      const ctrl = incForm.elements.controlNo.value.trim();
+      const docYear = (incForm.elements.dtsYear && incForm.elements.dtsYear.value.trim()) || extractDocYear(incForm.elements.dateReceived.value, ctrl);
+      const data = await uploadPdfSmart(file, file.name, ctrl, "PDF", { docYear, transaction: "Incoming", subFolder: "" });
       currentAttachmentFile = data.file;
       pdfPreviewExpanded = true;
       const attText = incForm.elements.attachments;
@@ -6189,10 +6200,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         attText.value = "PDF Attached";
       }
       renderPdfAttachmentBar();
+      const fPath = data.file.folderPath ? ` (${data.file.folderPath})` : "";
       showToast(
         data.file.driveSynced
-          ? `PDF uploaded to Google Drive: ${file.name}`
-          : `PDF saved locally: ${file.name} (Connect Google Drive in Settings to auto-upload to Drive)`
+          ? `PDF uploaded to Google Drive${fPath}: ${file.name}`
+          : `PDF saved locally${fPath}: ${file.name}`
       );
     } catch (err) {
       statusEl.textContent = "Upload failed";
@@ -6243,12 +6255,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("inc-reply-pdf-status");
     statusEl.textContent = `Uploading Reply PDF (${formatFileSize(file.size)})...`;
     try {
-      const data = await uploadPdfSmart(file, `${ctrl}_REPLY.pdf`, ctrl, "Reply PDF");
+      const docYear = (incForm.elements.dtsYear && incForm.elements.dtsYear.value.trim()) || extractDocYear(incForm.elements.dateReceived.value, ctrl);
+      const data = await uploadPdfSmart(file, `${ctrl}_REPLY.pdf`, ctrl, "Reply PDF", { docYear, transaction: "Incoming", subFolder: "Replies" });
       currentIncReplyAttachmentFile = data.file;
       incReplyPdfPreviewExpanded = true;
       renderIncReplyPdfBar();
       renderIncBoxERecipientChipsAndSummary();
-      showToast(data.file.driveSynced ? "Reply / Action PDF uploaded to Google Drive & ready to email!" : "Reply / Action PDF saved locally.");
+      const fPath = data.file.folderPath ? ` (${data.file.folderPath})` : "";
+      showToast(data.file.driveSynced ? `Reply / Action PDF uploaded to Google Drive${fPath} & ready to email!` : `Reply / Action PDF saved locally${fPath}.`);
     } catch (err) {
       statusEl.textContent = "Upload failed";
       showToast(err.message || "Reply PDF upload failed", true);
@@ -6485,7 +6499,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("out-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const data = await uploadPdfSmart(file, file.name, docCode, "Scanned PDF");
+      const docYear = (outForm.elements.dtsYear && outForm.elements.dtsYear.value.trim()) || extractDocYear(outForm.elements.dateOriginated.value, docCode);
+      const data = await uploadPdfSmart(file, file.name, docCode, "Scanned PDF", { docYear, transaction: "Outgoing", subFolder: "" });
       currentOutAttachmentFile = data.file;
       outPdfPreviewExpanded = true;
       if (!outForm.elements.attachments.value.trim() || outForm.elements.attachments.value.trim().toUpperCase() === "NONE") {
@@ -6493,10 +6508,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       renderOutPdfAttachmentBar();
       renderFurnishedCopyChipsAndSummary();
+      const fPath = data.file.folderPath ? ` (${data.file.folderPath})` : "";
       showToast(
         data.file.driveSynced
-          ? `Scanned PDF uploaded to Google Drive & ready to email: ${file.name}`
-          : `Scanned PDF saved locally: ${file.name}`
+          ? `Scanned PDF uploaded to Google Drive${fPath} & ready to email: ${file.name}`
+          : `Scanned PDF saved locally${fPath}: ${file.name}`
       );
     } catch (err) {
       statusEl.textContent = "Upload failed";
@@ -6696,15 +6712,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("iss-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const data = await uploadPdfSmart(file, file.name, docCode, "Issuance PDF");
+      const docYear = (issForm.elements.issuanceYear && issForm.elements.issuanceYear.value.trim()) || extractDocYear(issForm.elements.dateIssued.value, docCode);
+      const issCat = (issForm.elements.category && issForm.elements.category.value.trim()) || "";
+      const data = await uploadPdfSmart(file, file.name, docCode, "Issuance PDF", { docYear, transaction: "Issuances", subFolder: issCat });
       currentIssAttachmentFile = data.file;
       issPdfPreviewExpanded = true;
       renderIssPdfAttachmentBar();
       renderIssRecipientChipsAndSummary();
+      const fPath = data.file.folderPath ? ` (${data.file.folderPath})` : "";
       showToast(
         data.file.driveSynced
-          ? `Issuance PDF uploaded to Google Drive: ${file.name}`
-          : `Issuance PDF saved locally: ${file.name}`
+          ? `Issuance PDF uploaded to Google Drive${fPath}: ${file.name}`
+          : `Issuance PDF saved locally${fPath}: ${file.name}`
       );
     } catch (err) {
       statusEl.textContent = "Upload failed";
@@ -6899,11 +6918,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("mail-pdf-status");
     statusEl.textContent = `Uploading ${file.name} (${formatFileSize(file.size)})...`;
     try {
-      const data = await uploadPdfSmart(file, file.name, docCode, "Receipt PDF");
+      const docYear = (mailForm.elements.mailingYear && mailForm.elements.mailingYear.value.trim()) || extractDocYear(mailForm.elements.dateMailed.value, docCode);
+      const courier = (mailForm.elements.courier && mailForm.elements.courier.value.trim()) || "";
+      const data = await uploadPdfSmart(file, file.name, docCode, "Receipt PDF", { docYear, transaction: "Mailing Process", subFolder: courier });
       currentMailAttachmentFile = data.file;
       mailPdfPreviewExpanded = true;
       renderMailPdfAttachmentBar();
-      showToast(data.file.driveSynced ? `Receipt PDF uploaded to Google Drive!` : `Receipt PDF saved locally.`);
+      const fPath = data.file.folderPath ? ` (${data.file.folderPath})` : "";
+      showToast(data.file.driveSynced ? `Receipt PDF uploaded to Google Drive${fPath}!` : `Receipt PDF saved locally${fPath}.`);
     } catch (err) {
       statusEl.textContent = "Upload failed";
       showToast(err.message || "PDF upload failed", true);

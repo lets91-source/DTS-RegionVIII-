@@ -622,6 +622,40 @@ function generateNextNumber_(db, type, dateStr, category, yearOverride, division
 }
 
 // ----------------- Drive PDF Upload & Email Helpers -----------------
+function sanitizeFolderSegment_(name) {
+  return String(name || "")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .slice(0, 60);
+}
+
+function resolvePdfFolderSegments_(body) {
+  let yr = String((body && body.docYear) || "").trim();
+  if (!/^(?:19|20)\d{2}$/.test(yr)) {
+    const m = String((body && body.controlNo) || "").match(/(?:^|-)((?:19|20)\d{2})(?:-|$)/);
+    yr = m ? m[1] : Utilities.formatDate(new Date(), "Asia/Manila", "yyyy");
+  }
+  let tx = sanitizeFolderSegment_(body && body.transaction);
+  if (!tx) {
+    const cn = String((body && body.controlNo) || "").trim().toUpperCase();
+    if (cn.indexOf("OUT-") === 0) tx = "Outgoing";
+    else if (cn.indexOf("PHILPOST-") === 0 || cn.indexOf("JRS-") === 0 || cn.indexOf("MAIL") === 0) tx = "Mailing Process";
+    else if (cn.indexOf("E-") === 0 || cn.indexOf("I-") === 0) tx = "Incoming";
+    else tx = "General";
+  }
+  const sub = sanitizeFolderSegment_(body && body.subFolder);
+  const segs = [yr, tx];
+  if (sub && sub.toLowerCase() !== tx.toLowerCase()) segs.push(sub);
+  return segs;
+}
+
+function getOrCreateDriveSubfolder_(parentFolder, name) {
+  const it = parentFolder.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return parentFolder.createFolder(name);
+}
+
 function savePdfToDriveFolder_(body, uploaderName) {
   const origName = String(body.filename || "attachment.pdf").trim();
   const base64Raw = String(body.base64 || "").replace(/^data:[^;]+;base64,/i, "").trim();
@@ -629,19 +663,25 @@ function savePdfToDriveFolder_(body, uploaderName) {
     return { ok: false, error: "Valid PDF file required." };
   }
   const targetFolderId = String(body.folderId || DRIVE_FOLDER_ID).trim();
-  let folder;
+  let rootFolder;
   try {
-    folder = DriveApp.getFolderById(targetFolderId);
+    rootFolder = DriveApp.getFolderById(targetFolderId);
   } catch (err) {
     const folders = DriveApp.getFoldersByName("DAR RO VIII DTS Attachments");
-    folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("DAR RO VIII DTS Attachments");
+    rootFolder = folders.hasNext() ? folders.next() : DriveApp.createFolder("DAR RO VIII DTS Attachments");
+  }
+  const segments = resolvePdfFolderSegments_(body);
+  let targetFolder = rootFolder;
+  for (let i = 0; i < segments.length; i++) {
+    targetFolder = getOrCreateDriveSubfolder_(targetFolder, segments[i]);
   }
   const bytes = Utilities.base64Decode(base64Raw);
   const fileName = (body.controlNo ? body.controlNo + "_" : "") + origName;
   const blob = Utilities.newBlob(bytes, "application/pdf", fileName);
-  const file = folder.createFile(blob);
+  const file = targetFolder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   const url = file.getUrl();
+  const folderPath = segments.join(" / ");
   return {
     ok: true,
     file: {
@@ -650,7 +690,8 @@ function savePdfToDriveFolder_(body, uploaderName) {
       url: url,
       driveUrl: url,
       driveFileId: file.getId(),
-      driveFolderUrl: DRIVE_FOLDER_URL,
+      driveFolderUrl: targetFolder.getUrl() || DRIVE_FOLDER_URL,
+      folderPath: folderPath,
       driveSynced: true,
       size: bytes.length,
       uploadedAt: getManilaNow_(),

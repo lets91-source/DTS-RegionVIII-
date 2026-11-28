@@ -1051,9 +1051,85 @@ async function getServiceAccountToken(sa) {
   return res.json.access_token;
 }
 
-async function uploadPdfDirectToDrive(buf, fileName, folderId, sa) {
+function sanitizeUploadSegment(name) {
+  return String(name || "")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\.{2,}/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 60);
+}
+
+function resolveUploadFolderSegments(docYear, transaction, subFolder, controlNo) {
+  let yr = String(docYear || "").trim();
+  if (!/^(?:19|20)\d{2}$/.test(yr)) {
+    const m = String(controlNo || "").match(/(?:^|-)((?:19|20)\d{2})(?:-|$)/);
+    yr = m ? m[1] : String(new Date().getFullYear());
+  }
+  let tx = sanitizeUploadSegment(transaction);
+  if (!tx) {
+    const cn = String(controlNo || "").trim().toUpperCase();
+    if (cn.startsWith("OUT-")) tx = "Outgoing";
+    else if (cn.startsWith("PHILPOST-") || cn.startsWith("JRS-") || cn.startsWith("MAIL")) tx = "Mailing Process";
+    else if (cn.startsWith("E-") || cn.startsWith("I-")) tx = "Incoming";
+    else tx = "General";
+  }
+  const sub = sanitizeUploadSegment(subFolder);
+  const segs = [yr, tx];
+  if (sub && sub.toLowerCase() !== tx.toLowerCase()) segs.push(sub);
+  return segs;
+}
+
+function resolveSafeLocalUploadPath(storedName) {
+  const rel = String(storedName || "").replace(/\\/g, "/").replace(/^\/+/, "");
+  const parts = rel.split("/").filter((p) => p && p !== "." && p !== "..");
+  if (!parts.length) return "";
+  const full = path.resolve(UPLOADS_DIR, ...parts);
+  const rootResolved = path.resolve(UPLOADS_DIR);
+  if (full !== rootResolved && !full.startsWith(rootResolved + path.sep)) return "";
+  return full;
+}
+
+async function ensureDriveSubfolderV3(parentId, folderName, accessToken) {
+  const escName = String(folderName || "").replace(/'/g, "\\'");
+  const q = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${escName}' and '${parentId}' in parents and trashed=false`);
+  const listRes = await httpsReq(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { method: "GET", headers: { Authorization: `Bearer ${accessToken}` }, timeout: 15000 }
+  );
+  if (listRes.status < 400 && listRes.json && Array.isArray(listRes.json.files) && listRes.json.files.length > 0) {
+    return listRes.json.files[0].id;
+  }
+  const createBody = Buffer.from(
+    JSON.stringify({ name: folderName, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
+    "utf8"
+  );
+  const createRes = await httpsReq(
+    "https://www.googleapis.com/drive/v3/files?fields=id,name&supportsAllDrives=true",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "Content-Length": createBody.length,
+      },
+      timeout: 15000,
+    },
+    createBody
+  );
+  if (createRes.status >= 400 || !createRes.json || !createRes.json.id) {
+    throw new Error(`Could not create Drive folder "${folderName}"`);
+  }
+  return createRes.json.id;
+}
+
+async function uploadPdfDirectToDrive(buf, fileName, rootFolderId, sa, folderSegments = []) {
   const accessToken = await getServiceAccountToken(sa);
-  const metaBody = Buffer.from(JSON.stringify({ name: fileName, parents: [folderId] }), "utf8");
+  let targetFolderId = rootFolderId;
+  for (const seg of folderSegments || []) {
+    if (seg) targetFolderId = await ensureDriveSubfolderV3(targetFolderId, seg, accessToken);
+  }
+  const metaBody = Buffer.from(JSON.stringify({ name: fileName, parents: [targetFolderId] }), "utf8");
   const initRes = await httpsReq(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true",
     {
@@ -1105,7 +1181,7 @@ async function uploadPdfDirectToDrive(buf, fileName, folderId, sa) {
       permBody
     );
   } catch (_) {}
-  return { fileId, url: `https://drive.google.com/file/d/${fileId}/view` };
+  return { fileId, url: `https://drive.google.com/file/d/${fileId}/view`, folderUrl: `https://drive.google.com/drive/folders/${targetFolderId}` };
 }
 
 function fetchJsonFollowRedirect(urlStr, timeoutMs = 15000) {
@@ -1371,8 +1447,8 @@ async function dispatchFurnishedCopyEmails(db, record, senderUser) {
   let attachmentBase64 = "";
   if (att && !attDriveFileId && att.storedName) {
     try {
-      const localPath = path.join(UPLOADS_DIR, path.basename(att.storedName));
-      if (fs.existsSync(localPath)) {
+      const localPath = resolveSafeLocalUploadPath(att.storedName);
+      if (localPath && fs.existsSync(localPath)) {
         const stat = fs.statSync(localPath);
         if (stat.size <= 12 * 1024 * 1024) {
           attachmentBase64 = fs.readFileSync(localPath).toString("base64");
@@ -1550,8 +1626,8 @@ async function dispatchIncomingReplyEmails(db, record, senderUser) {
   let attachmentBase64 = "";
   if (att && !attDriveFileId && att.storedName) {
     try {
-      const localPath = path.join(UPLOADS_DIR, path.basename(att.storedName));
-      if (fs.existsSync(localPath)) {
+      const localPath = resolveSafeLocalUploadPath(att.storedName);
+      if (localPath && fs.existsSync(localPath)) {
         const stat = fs.statSync(localPath);
         if (stat.size <= 12 * 1024 * 1024) {
           attachmentBase64 = fs.readFileSync(localPath).toString("base64");
@@ -1736,8 +1812,8 @@ async function dispatchIssuanceEmails(db, record, senderUser) {
   let attachmentBase64 = "";
   if (att && !attDriveFileId && att.storedName) {
     try {
-      const localPath = path.join(UPLOADS_DIR, path.basename(att.storedName));
-      if (fs.existsSync(localPath)) {
+      const localPath = resolveSafeLocalUploadPath(att.storedName);
+      if (localPath && fs.existsSync(localPath)) {
         const stat = fs.statSync(localPath);
         if (stat.size <= 12 * 1024 * 1024) {
           attachmentBase64 = fs.readFileSync(localPath).toString("base64");
@@ -2476,16 +2552,25 @@ async function handleApi(req, res, urlObj) {
       const contentType = String(req.headers["content-type"] || "").toLowerCase();
       let origName = "attachment.pdf";
       let controlNo = "";
+      let docYear = "";
+      let transaction = "";
+      let subFolder = "";
       let buf = null;
 
       if (contentType.includes("application/pdf") || contentType.includes("application/octet-stream")) {
         origName = decodeURIComponent(String(req.headers["x-filename"] || "attachment.pdf")).trim();
         controlNo = decodeURIComponent(String(req.headers["x-control-no"] || "")).trim();
+        docYear = decodeURIComponent(String(req.headers["x-doc-year"] || "")).trim();
+        transaction = decodeURIComponent(String(req.headers["x-transaction"] || "")).trim();
+        subFolder = decodeURIComponent(String(req.headers["x-subfolder"] || "")).trim();
         buf = await readRawBuffer(req, MAX_PDF_BYTES);
       } else {
         const body = await parseBody(req, 150 * 1024 * 1024);
         origName = String(body.filename || "attachment.pdf").trim();
         controlNo = String(body.controlNo || "").trim();
+        docYear = String(body.docYear || "").trim();
+        transaction = String(body.transaction || "").trim();
+        subFolder = String(body.subFolder || "").trim();
         const base64Raw = String(body.base64 || "").replace(/^data:application\/pdf;base64,/i, "").trim();
         if (!base64Raw) return sendJson(res, 400, { error: "Empty PDF file data." });
         buf = Buffer.from(base64Raw, "base64");
@@ -2501,25 +2586,33 @@ async function handleApi(req, res, urlObj) {
         return sendJson(res, 400, { error: "PDF exceeds maximum allowed size of 100 MB." });
       }
 
+      const folderSegments = resolveUploadFolderSegments(docYear, transaction, subFolder, controlNo);
+      const folderPath = folderSegments.join(" / ");
       const safeCtrl = String(controlNo || "DOC").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 40);
       const baseNoExt = path.basename(origName, path.extname(origName)).replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 72);
-      const storedName = `${safeCtrl}_${Date.now()}_${baseNoExt || "document"}.pdf`;
-      fs.writeFileSync(path.join(UPLOADS_DIR, storedName), buf);
+      const fileOnlyName = `${safeCtrl}_${Date.now()}_${baseNoExt || "document"}.pdf`;
+      const localSubDir = path.join(UPLOADS_DIR, ...folderSegments);
+      fs.mkdirSync(localSubDir, { recursive: true });
+      fs.writeFileSync(path.join(localSubDir, fileOnlyName), buf);
+      const storedName = [...folderSegments, fileOnlyName].join("/");
+      const encodedLocalPath = storedName.split("/").map(encodeURIComponent).join("/");
 
-      // Upload to Google Drive folder (Priority 1: Direct Drive API v3 Service Account up to 100 MB; Priority 2: Apps Script Bridge up to 35 MB)
+      // Upload to Google Drive folder (Year / Transaction / SubFolder)
       const folderId = db.meta.driveFolderId || "1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC";
       const driveFileName = `${controlNo ? controlNo + "_" : ""}${origName}`;
       let driveUrl = "";
       let driveFileId = "";
+      let driveFolderUrl = db.meta.driveFolderUrl || "https://drive.google.com/drive/folders/1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC?usp=sharing";
       let driveSynced = false;
       let driveNote = "";
       const sa = loadServiceAccount();
 
       if (sa) {
         try {
-          const up = await uploadPdfDirectToDrive(buf, driveFileName, folderId, sa);
+          const up = await uploadPdfDirectToDrive(buf, driveFileName, folderId, sa, folderSegments);
           driveUrl = up.url;
           driveFileId = up.fileId;
+          if (up.folderUrl) driveFolderUrl = up.folderUrl;
           driveSynced = true;
         } catch (err) {
           driveNote = `Saved locally (Google Drive upload error: ${err.message})`;
@@ -2532,6 +2625,9 @@ async function handleApi(req, res, urlObj) {
               action: "uploadPdf",
               filename: origName,
               controlNo,
+              docYear: folderSegments[0],
+              transaction: folderSegments[1],
+              subFolder: folderSegments[2] || "",
               folderId,
               base64: buf.toString("base64"),
               uploadedBy: user.fullName,
@@ -2540,7 +2636,8 @@ async function handleApi(req, res, urlObj) {
           );
           if (gasRes.synced && gasRes.json && gasRes.json.ok && gasRes.json.file) {
             driveUrl = gasRes.json.file.url || "";
-            driveFileId = gasRes.json.file.storedName || "";
+            driveFileId = gasRes.json.file.driveFileId || gasRes.json.file.storedName || "";
+            if (gasRes.json.file.driveFolderUrl) driveFolderUrl = gasRes.json.file.driveFolderUrl;
             driveSynced = !!driveUrl;
           } else {
             driveNote = `Saved locally (Apps Script Drive sync error: ${(gasRes.json && gasRes.json.error) || gasRes.reason || "Check Web App deployment"})`;
@@ -2557,11 +2654,12 @@ async function handleApi(req, res, urlObj) {
         file: {
           name: origName,
           storedName,
-          url: driveUrl || `/uploads/${encodeURIComponent(storedName)}`,
-          localUrl: `/uploads/${encodeURIComponent(storedName)}`,
+          folderPath,
+          url: driveUrl || `/uploads/${encodedLocalPath}`,
+          localUrl: `/uploads/${encodedLocalPath}`,
           driveUrl,
           driveFileId,
-          driveFolderUrl: db.meta.driveFolderUrl || "https://drive.google.com/drive/folders/1JJwNkttWowxao0UIhR7k_hKXWI1L_eQC?usp=sharing",
+          driveFolderUrl,
           driveSynced,
           driveNote,
           size: buf.length,
@@ -3429,12 +3527,13 @@ function requestHandler(req, res) {
   const urlObj = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   if (urlObj.pathname.startsWith("/api/")) return handleApi(req, res, urlObj);
   if (urlObj.pathname.startsWith("/uploads/")) {
-    const fileName = path.basename(decodeURIComponent(urlObj.pathname.slice("/uploads/".length)));
-    const fullPath = path.join(UPLOADS_DIR, fileName);
-    if (!fullPath.startsWith(UPLOADS_DIR) || !fs.existsSync(fullPath)) {
+    const relPath = decodeURIComponent(urlObj.pathname.slice("/uploads/".length));
+    const fullPath = resolveSafeLocalUploadPath(relPath);
+    if (!fullPath || !fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
       res.writeHead(404);
       return res.end("Attachment not found");
     }
+    const fileName = path.basename(fullPath);
     res.writeHead(200, {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${fileName.replace(/"/g, "")}"`,
