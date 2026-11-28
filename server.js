@@ -3156,19 +3156,21 @@ async function handleApi(req, res, urlObj) {
       const courier = String(body.courier || (db.meta.mailingCouriers && db.meta.mailingCouriers[0]) || "PhilPost").trim();
       const dateMailed = String(body.dateMailed || "").trim();
       const docType = String(body.docType || "").trim();
-      const subject = String(body.subject || "").trim();
+      const pouchControlNo = String(body.pouchControlNo || "").trim();
 
       const rawAddressees = Array.isArray(body.addressees) ? body.addressees : [];
       let addressees = rawAddressees
         .map((a) => ({
           name: String((a && a.name) || "").trim(),
+          dtsNumber: String((a && a.dtsNumber) || "").trim(),
           trackingNo: String((a && a.trackingNo) || "").trim(),
           dateReceived: String((a && a.dateReceived) || "").trim(),
         }))
-        .filter((a) => a.name || a.trackingNo || a.dateReceived);
+        .filter((a) => a.name || a.dtsNumber || a.trackingNo || a.dateReceived);
       if (!addressees.length && String(body.recipientName || "").trim()) {
         addressees = [{
           name: String(body.recipientName || "").trim(),
+          dtsNumber: String(body.docRefNo || "").trim(),
           trackingNo: String(body.trackingNo || "").trim(),
           dateReceived: String(body.dateReceived || "").trim(),
         }];
@@ -3176,8 +3178,9 @@ async function handleApi(req, res, urlObj) {
       const recipientName = addressees.map((a) => a.name).filter(Boolean).join("\n");
       const trackingNo = addressees.map((a) => a.trackingNo).filter(Boolean).join("\n");
       const dateReceived = addressees.map((a) => a.dateReceived).filter(Boolean).join("\n");
-      if (!recipientName) return sendJson(res, 400, { error: "At least one Addressee / Recipient Name is required." });
-      if (!subject) return sendJson(res, 400, { error: "Subject / Particulars is required." });
+      const subject = String(body.subject || "").trim() || `${courier} — ${pouchControlNo ? "Pouch Control No. " + pouchControlNo : (docType || "Pouch Service Transmittal")} (${addressees.length} mail${addressees.length > 1 ? "s" : ""})`;
+      const numberOfMails = String(body.numberOfMails ?? "").trim() || String(addressees.length);
+      if (!recipientName) return sendJson(res, 400, { error: "At least one Name of Addressee is required." });
 
       let idx = reqId ? db.mailings.findIndex((r) => r.id === reqId) : -1;
       if (idx < 0) {
@@ -3185,9 +3188,13 @@ async function handleApi(req, res, urlObj) {
         const rec = {
           id: "mail-" + crypto.randomBytes(6).toString("hex"),
           mailingNo,
+          pouchControlNo,
           courier,
           docType,
           dateMailed,
+          fromOffice: String(body.fromOffice || "").trim(),
+          instruction: String(body.instruction || "").trim(),
+          toCc: String(body.toCc || "").trim(),
           addressees,
           trackingNo,
           docRefNo: String(body.docRefNo || "").trim(),
@@ -3200,7 +3207,13 @@ async function handleApi(req, res, urlObj) {
           amount: String(body.amount || "").trim(),
           status: String(body.status || "Mailed / In Transit").trim(),
           dateReceived,
-          receivedBy: String(body.receivedBy || "").trim(),
+          receivedBy: String(body.receivedBy || body.transReceivedBy || "").trim(),
+          transDateReceived: String(body.transDateReceived || "").trim(),
+          transTimeReceived: String(body.transTimeReceived || "").trim(),
+          transReceivedBy: String(body.transReceivedBy || "").trim(),
+          transDateReleased: String(body.transDateReleased || "").trim(),
+          transReleaseDateTime: String(body.transReleaseDateTime || "").trim(),
+          numberOfMails,
           remarks: String(body.remarks || "").trim(),
           recipients: normalizeFurnishedCopy(body.recipients),
           attachmentFile: body.attachmentFile || null,
@@ -3220,9 +3233,13 @@ async function handleApi(req, res, urlObj) {
       const updated = {
         ...existing,
         mailingNo: String(body.mailingNo || existing.mailingNo).trim(),
+        pouchControlNo: body.pouchControlNo !== undefined ? pouchControlNo : (existing.pouchControlNo || ""),
         courier,
         docType: body.docType !== undefined ? docType : (existing.docType || ""),
         dateMailed,
+        fromOffice: String(body.fromOffice ?? existing.fromOffice ?? "").trim(),
+        instruction: String(body.instruction ?? existing.instruction ?? "").trim(),
+        toCc: String(body.toCc ?? existing.toCc ?? "").trim(),
         addressees,
         trackingNo,
         docRefNo: String(body.docRefNo ?? existing.docRefNo ?? "").trim(),
@@ -3235,7 +3252,13 @@ async function handleApi(req, res, urlObj) {
         amount: String(body.amount ?? existing.amount ?? "").trim(),
         status: String(body.status || existing.status || "Mailed / In Transit").trim(),
         dateReceived,
-        receivedBy: String(body.receivedBy ?? existing.receivedBy ?? "").trim(),
+        receivedBy: String(body.receivedBy ?? body.transReceivedBy ?? existing.receivedBy ?? "").trim(),
+        transDateReceived: String(body.transDateReceived ?? existing.transDateReceived ?? "").trim(),
+        transTimeReceived: String(body.transTimeReceived ?? existing.transTimeReceived ?? "").trim(),
+        transReceivedBy: String(body.transReceivedBy ?? existing.transReceivedBy ?? "").trim(),
+        transDateReleased: String(body.transDateReleased ?? existing.transDateReleased ?? "").trim(),
+        transReleaseDateTime: String(body.transReleaseDateTime ?? existing.transReleaseDateTime ?? "").trim(),
+        numberOfMails,
         remarks: String(body.remarks ?? existing.remarks ?? "").trim(),
         recipients: body.recipients !== undefined ? normalizeFurnishedCopy(body.recipients) : (existing.recipients || []),
         attachmentFile: body.attachmentFile !== undefined ? body.attachmentFile : existing.attachmentFile || null,

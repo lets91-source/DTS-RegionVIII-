@@ -1700,7 +1700,7 @@
       <div class="modal-header blue">
         <div>
           <h2 id="mail-modal-title">Encode New Mailing</h2>
-          <p>DAR Eastern Visayas Regional Office VIII — Mailing Process (PhilPost &amp; JRS)</p>
+          <p>DAR Eastern Visayas — Pouch Service for Mails (Transmittal Slip Form — PhilPost &amp; JRS)</p>
         </div>
         <button class="modal-close" data-close="modal-mailing" aria-label="Close">✕</button>
       </div>
@@ -1723,8 +1723,12 @@
               <input type="text" name="mailingNo" id="mail-no-input" class="input" required placeholder="PHILPOST-2026-0001" />
             </label>
             <label class="field">
-              <span>Date Mailed *</span>
+              <span>Date *</span>
               <input type="date" name="dateMailed" class="input" required />
+            </label>
+            <label class="field">
+              <span>Pouch Control No.</span>
+              <input type="text" name="pouchControlNo" id="mail-pouch-no" class="input" style="font-weight:800;color:#b71c1c;" placeholder="e.g. 142" />
             </label>
             <label class="field">
               <span>Type of Document</span>
@@ -1745,8 +1749,27 @@
               </datalist>
             </label>
             <label class="field">
-              <span>Document / Case Ref. No.</span>
-              <input type="text" name="docRefNo" class="input" placeholder="e.g. ORDER-2026-0001 / OUT-11-27-2026-0001" />
+              <span>From:</span>
+              <input type="text" name="fromOffice" list="mail-from-list" class="input" placeholder="e.g. DAR RO VIII / Records Section" />
+              <datalist id="mail-from-list">
+                <option value="DAR RO VIII - Records Section"></option>
+                <option value="Office of the Regional Director (RD)"></option>
+                <option value="ARDO"></option>
+                <option value="ARDA"></option>
+                <option value="LTS"></option>
+                <option value="ARBDSP"></option>
+                <option value="LEGAL"></option>
+                <option value="DARAB / RARAD"></option>
+                <option value="STO"></option>
+              </datalist>
+            </label>
+            <label class="field">
+              <span>Instruction:</span>
+              <input type="text" name="instruction" class="input" placeholder="e.g. For Delivery / Dispatch via PhilPost / JRS" />
+            </label>
+            <label class="field">
+              <span>To / Cc:</span>
+              <input type="text" name="toCc" class="input" placeholder="e.g. Concerned Parties / DARPO Offices" />
             </label>
             <label class="field">
               <span>Mailing Status *</span>
@@ -1777,25 +1800,61 @@
               <div class="multi-names-box" id="mail-addressees-box">
                 <div class="multi-names-head">
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="font-weight:700;color:var(--dar-dark);">Addressees / Recipients</span>
-                    <span class="multi-names-count" id="mail-addressees-count">1 addressee</span>
-                    <span class="muted-text" style="font-size:11.5px;">(Each addressee has their own Tracking/Waybill No. &amp; Return Card Date)</span>
+                    <span style="font-weight:700;color:var(--dar-dark);">Transmittal Mail List (Name of Addressee • DTS Number • Tracking Number)</span>
+                    <span class="multi-names-count" id="mail-addressees-count">1 mail</span>
+                    <span class="muted-text" style="font-size:11.5px;">(Prints directly onto the Pouch Service Transmittal Slip Form)</span>
                   </div>
                   <button type="button" class="btn btn-sm btn-primary" id="btn-mail-add-addressee">+ Add Addressee</button>
                 </div>
                 <div class="mail-addr-hdr">
                   <span>#</span>
-                  <span>Addressee / Recipient Name *</span>
-                  <span>Tracking / Registry / Waybill No.</span>
-                  <span>Date Received / Return Card</span>
+                  <span>Name of Addressee *</span>
+                  <span>DTS Number</span>
+                  <span style="color:#b71c1c;">Tracking Number</span>
+                  <span>Date Recv / Return Card</span>
                   <span></span>
                 </div>
                 <div class="mail-addr-rows" id="mail-addressees-rows"></div>
               </div>
             </div>
-            <label class="field col-span-3">
-              <span>Subject / Particulars *</span>
-              <textarea name="subject" class="textarea" rows="2" required placeholder="Document subject, ALI case title, or contents mailed..."></textarea>
+            <div class="field col-span-3">
+              <div class="mail-transmittal-footer-box">
+                <div class="mail-tf-title">Transmittal Slip Receipt &amp; Release Details (Bottom of Form)</div>
+                <div class="form-grid-3">
+                  <label class="field">
+                    <span>Date Received</span>
+                    <input type="date" name="transDateReceived" class="input" />
+                  </label>
+                  <label class="field">
+                    <span>Time Received</span>
+                    <input type="text" name="transTimeReceived" class="input" placeholder="e.g. 10:30 AM" />
+                  </label>
+                  <label class="field">
+                    <span>By (Received By)</span>
+                    <input type="text" name="transReceivedBy" class="input" placeholder="e.g. MARY GEMA M. ECONG" />
+                  </label>
+                  <label class="field">
+                    <span>Date Released</span>
+                    <input type="date" name="transDateReleased" class="input" />
+                  </label>
+                  <label class="field">
+                    <span>Date / Time (Released)</span>
+                    <input type="text" name="transReleaseDateTime" class="input" placeholder="e.g. 01-Oct-26 / 2:00 PM" />
+                  </label>
+                  <label class="field">
+                    <span style="color:#b71c1c;">Number of Mails</span>
+                    <input type="number" name="numberOfMails" id="mail-num-mails" class="input" min="0" style="font-weight:800;color:#b71c1c;" placeholder="Auto-counted" />
+                  </label>
+                </div>
+              </div>
+            </div>
+            <label class="field col-span-2">
+              <span>Subject / Particulars (Optional Summary)</span>
+              <input type="text" name="subject" class="input" placeholder="Document subject, ALI case title, or pouch transmittal summary..." />
+            </label>
+            <label class="field">
+              <span>Document / Case Ref. No.</span>
+              <input type="text" name="docRefNo" class="input" placeholder="e.g. ORDER-2026-0001" />
             </label>
             <label class="field">
               <span>Originating Unit</span>
@@ -1847,9 +1906,12 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline" id="btn-cancel-mailing" data-close="modal-mailing">Cancel</button>
-          <button type="submit" class="btn btn-blue" id="btn-save-mailing">Save Mailing Record</button>
+        <div class="modal-footer" style="justify-content:space-between;">
+          <button type="button" class="btn btn-outline" id="btn-print-mail-modal">🖨️ Print Transmittal Slip</button>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="btn btn-outline" id="btn-cancel-mailing" data-close="modal-mailing">Cancel</button>
+            <button type="submit" class="btn btn-blue" id="btn-save-mailing">Save Mailing Record</button>
+          </div>
         </div>
       </form>
     </div>

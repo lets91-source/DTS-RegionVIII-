@@ -2790,6 +2790,7 @@ function getMailingAddresseesList(r) {
   if (r && Array.isArray(r.addressees) && r.addressees.length) {
     return r.addressees.map((a) => ({
       name: String((a && a.name) || "").trim(),
+      dtsNumber: String((a && a.dtsNumber) || "").trim(),
       trackingNo: String((a && a.trackingNo) || "").trim(),
       dateReceived: String((a && a.dateReceived) || "").trim(),
     }));
@@ -2797,6 +2798,7 @@ function getMailingAddresseesList(r) {
   if (r && (r.recipientName || r.trackingNo || r.dateReceived)) {
     return [{
       name: String(r.recipientName || "").trim(),
+      dtsNumber: String(r.docRefNo || "").trim(),
       trackingNo: String(r.trackingNo || "").trim(),
       dateReceived: String(r.dateReceived || "").trim(),
     }];
@@ -2808,12 +2810,16 @@ function renderMailingAddresseesEditor(items = []) {
   const rowsWrap = document.getElementById("mail-addressees-rows");
   const addBtn = document.getElementById("btn-mail-add-addressee");
   const cntEl = document.getElementById("mail-addressees-count");
+  const numMailsInp = document.getElementById("mail-num-mails");
   if (!rowsWrap) return;
 
-  const initial = Array.isArray(items) && items.length ? items : [{ name: "", trackingNo: "", dateReceived: "" }];
+  const initial = Array.isArray(items) && items.length
+    ? items
+    : [{ name: "", dtsNumber: "", trackingNo: "", dateReceived: "" }];
 
   const syncRows = () => {
     const rows = [...rowsWrap.querySelectorAll(".mail-addr-row")];
+    let filledCount = 0;
     rows.forEach((row, i) => {
       const num = row.querySelector(".multi-name-num");
       const rm = row.querySelector(".multi-name-rm");
@@ -2823,8 +2829,14 @@ function renderMailingAddresseesEditor(items = []) {
         rm.disabled = rows.length <= 1;
         rm.style.opacity = rows.length <= 1 ? "0.4" : "1";
       }
+      const n = (row.querySelector(".mail-addr-name")?.value || "").trim();
+      const t = (row.querySelector(".mail-addr-track")?.value || "").trim();
+      const d = (row.querySelector(".mail-addr-dts")?.value || "").trim();
+      if (n || t || d) filledCount++;
     });
-    if (cntEl) cntEl.textContent = `${rows.length} addressee${rows.length > 1 ? "s" : ""}`;
+    const showCnt = filledCount || rows.length;
+    if (cntEl) cntEl.textContent = `${showCnt} mail${showCnt > 1 ? "s" : ""}`;
+    if (numMailsInp) numMailsInp.value = String(filledCount || 0);
   };
 
   const addRow = (item = {}, focusNew = true) => {
@@ -2833,18 +2845,21 @@ function renderMailingAddresseesEditor(items = []) {
     row.className = "mail-addr-row";
     row.innerHTML = `
       <span class="multi-name-num">${idx}</span>
-      <input type="text" class="input mail-addr-name" value="${esc(item.name || "")}" placeholder="Addressee / Recipient Name..." />
-      <input type="text" class="input mail-addr-track" value="${esc(item.trackingNo || "")}" placeholder="Tracking / Registry / Waybill No." />
+      <input type="text" class="input mail-addr-name" value="${esc(item.name || "")}" placeholder="Name of Addressee..." />
+      <input type="text" class="input mail-addr-dts" value="${esc(item.dtsNumber || "")}" placeholder="e.g. E-2910 / I-3137" />
+      <input type="text" class="input mail-addr-track" value="${esc(item.trackingNo || "")}" placeholder="Tracking / Waybill No." />
       <input type="date" class="input mail-addr-recv" value="${esc(item.dateReceived || "")}" title="Date Received / Return Card" />
       <button type="button" class="multi-name-rm" title="Remove addressee ${idx}">✕</button>
     `;
     rowsWrap.appendChild(row);
     const nameInp = row.querySelector(".mail-addr-name");
+    row.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", syncRows));
     const rmBtn = row.querySelector(".multi-name-rm");
     if (rmBtn) {
       rmBtn.addEventListener("click", () => {
         if (rowsWrap.querySelectorAll(".mail-addr-row").length <= 1) {
           row.querySelectorAll("input").forEach((inp) => (inp.value = ""));
+          syncRows();
           return;
         }
         row.remove();
@@ -2870,10 +2885,11 @@ function readMailingAddresseesFromModal() {
   return [...rowsWrap.querySelectorAll(".mail-addr-row")]
     .map((row) => ({
       name: (row.querySelector(".mail-addr-name")?.value || "").trim(),
+      dtsNumber: (row.querySelector(".mail-addr-dts")?.value || "").trim(),
       trackingNo: (row.querySelector(".mail-addr-track")?.value || "").trim(),
       dateReceived: (row.querySelector(".mail-addr-recv")?.value || "").trim(),
     }))
-    .filter((a) => a.name || a.trackingNo || a.dateReceived);
+    .filter((a) => a.name || a.dtsNumber || a.trackingNo || a.dateReceived);
 }
 
 function renderMailingView() {
@@ -2977,7 +2993,10 @@ function renderMailingView() {
           })();
       return `
       <tr>
-        <td><span class="code-chip">${esc(r.mailingNo)}</span></td>
+        <td>
+          <span class="code-chip">${esc(r.mailingNo)}</span>
+          ${r.pouchControlNo ? `<div class="sub-line">Pouch No.: <strong style="color:#b71c1c;">${esc(r.pouchControlNo)}</strong></div>` : ""}
+        </td>
         <td><span class="badge">${getMailingCourierIcon(r.courier)} ${esc(r.courier)}</span></td>
         <td>${r.docType ? `<span class="badge">${esc(r.docType)}</span>` : "—"}</td>
         <td>${esc(formatDateShort(r.dateMailed) || r.dateMailed || "—")}</td>
@@ -2988,7 +3007,7 @@ function renderMailingView() {
           ${r.recipientAddress ? `<div class="sub-line">${esc(r.recipientAddress)}</div>` : (!r.province ? "—" : "")}
         </td>
         <td>
-          <strong>${esc(r.subject)}</strong> ${pdfPill}
+          <strong>${esc(r.subject || (r.pouchControlNo ? "Pouch Transmittal #" + r.pouchControlNo : "Pouch Transmittal"))}</strong> ${pdfPill}
           ${r.docRefNo ? `<div class="sub-line">Ref: ${esc(r.docRefNo)}</div>` : ""}
         </td>
         <td>
@@ -3000,6 +3019,7 @@ function renderMailingView() {
         <td>${recvHtml}</td>
         <td>${esc(r.remarks || "—")}</td>
         <td class="actions-col">
+          <button type="button" class="btn btn-sm btn-primary" onclick="openPrintMailingSlip('${esc(r.id)}')">🖨️ Slip</button>
           <button type="button" class="btn btn-sm btn-outline" onclick="openEditMailing('${esc(r.id)}')">${canEdit ? "View / Edit" : "👁️ View"}</button>
           ${canDelete ? `<button type="button" class="btn btn-sm btn-danger" onclick="deleteMailingRecord('${esc(r.id)}')">Delete</button>` : ""}
         </td>
@@ -3214,11 +3234,20 @@ async function openNewMailing() {
   const curYr = today.slice(0, 4);
   form.elements.dateMailed.value = today;
   if (form.elements.mailingYear) form.elements.mailingYear.value = curYr;
+  if (form.elements.fromOffice) form.elements.fromOffice.value = "DAR RO VIII - Records Section";
+  if (form.elements.instruction) form.elements.instruction.value = "";
+  if (form.elements.toCc) form.elements.toCc.value = "";
+  if (form.elements.pouchControlNo) form.elements.pouchControlNo.value = "";
+  if (form.elements.transDateReceived) form.elements.transDateReceived.value = today;
+  if (form.elements.transTimeReceived) form.elements.transTimeReceived.value = "";
+  if (form.elements.transReceivedBy) form.elements.transReceivedBy.value = (currentUser && currentUser.fullName) || "";
+  if (form.elements.transDateReleased) form.elements.transDateReleased.value = today;
+  if (form.elements.transReleaseDateTime) form.elements.transReleaseDateTime.value = "";
   form.elements.originatingDivision.value = (currentUser && currentUser.division) || "STO - Records";
   form.elements.mailedBy.value = (currentUser && currentUser.fullName) || "";
   form.elements.status.value = "Mailed / In Transit";
   form.elements.mailingNo.value = await fetchNextNumber("mailing", today, defaultCourier, curYr);
-  document.getElementById("mail-modal-title").textContent = `Encode New Mailing (${defaultCourier})`;
+  document.getElementById("mail-modal-title").textContent = `Encode New Mailing — Pouch Transmittal Slip (${defaultCourier})`;
   renderMailingAddresseesEditor([]);
   renderMailRecipientPicker();
   renderMailRecipientChips();
@@ -3249,6 +3278,15 @@ window.openEditMailing = function (id) {
   form.elements.docType.value = rec.docType || "";
   form.elements.dateMailed.value = rec.dateMailed || "";
   if (form.elements.mailingYear) form.elements.mailingYear.value = extractDocYear(rec.dateMailed, rec.mailingNo) || todayISO().slice(0, 4);
+  if (form.elements.pouchControlNo) form.elements.pouchControlNo.value = rec.pouchControlNo || "";
+  if (form.elements.fromOffice) form.elements.fromOffice.value = rec.fromOffice || "";
+  if (form.elements.instruction) form.elements.instruction.value = rec.instruction || "";
+  if (form.elements.toCc) form.elements.toCc.value = rec.toCc || "";
+  if (form.elements.transDateReceived) form.elements.transDateReceived.value = rec.transDateReceived || rec.dateMailed || "";
+  if (form.elements.transTimeReceived) form.elements.transTimeReceived.value = rec.transTimeReceived || "";
+  if (form.elements.transReceivedBy) form.elements.transReceivedBy.value = rec.transReceivedBy || rec.receivedBy || "";
+  if (form.elements.transDateReleased) form.elements.transDateReleased.value = rec.transDateReleased || rec.dateMailed || "";
+  if (form.elements.transReleaseDateTime) form.elements.transReleaseDateTime.value = rec.transReleaseDateTime || "";
   form.elements.docRefNo.value = rec.docRefNo || "";
   form.elements.status.value = rec.status || "Mailed / In Transit";
   form.elements.province.value = rec.province || "";
@@ -3262,11 +3300,147 @@ window.openEditMailing = function (id) {
     ? `View Mailing — ${rec.mailingNo} (View Only)`
     : `Edit Mailing — ${rec.mailingNo}`;
   renderMailingAddresseesEditor(getMailingAddresseesList(rec));
+  if (form.elements.numberOfMails && rec.numberOfMails !== undefined && String(rec.numberOfMails).trim() !== "") {
+    form.elements.numberOfMails.value = String(rec.numberOfMails);
+  }
   renderMailRecipientPicker();
   renderMailRecipientChips();
   renderMailPdfAttachmentBar();
   applyMailingModalReadOnly(isReadOnly);
   openModal("modal-mailing");
+};
+
+function formatDateSlipDash(iso) {
+  if (!iso) return "";
+  const m = String(iso).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(iso);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const mo = months[parseInt(m[2], 10) - 1] || m[2];
+  return `${m[3]}-${mo}-${m[1].slice(-2)}`;
+}
+
+function renderPouchTransmittalSlipHtml(rec) {
+  const addrs = getMailingAddresseesList(rec);
+  const totalRows = Math.max(18, addrs.length);
+  const numMails = (rec.numberOfMails !== undefined && String(rec.numberOfMails).trim() !== "")
+    ? String(rec.numberOfMails)
+    : String(addrs.filter((a) => a.name || a.dtsNumber || a.trackingNo).length);
+  const pouchNo = rec.pouchControlNo || rec.mailingNo || "";
+  const courierTag = rec.courier ? ` (${String(rec.courier).toUpperCase()})` : "";
+  const slipDate = formatDateSlipDash(rec.dateMailed || "");
+  const dtRecv = formatDateSlipDash(rec.transDateReceived || rec.dateMailed || "");
+  const dtRel = formatDateSlipDash(rec.transDateReleased || rec.dateMailed || "");
+
+  let tableRowsHtml = "";
+  for (let i = 0; i < totalRows; i++) {
+    const item = addrs[i];
+    const nameCell = item && item.name ? `${i + 1}. ${esc(item.name)}` : "&nbsp;";
+    const dtsCell = item && item.dtsNumber ? `${i + 1}. ${esc(item.dtsNumber)}` : "&nbsp;";
+    const trackCell = item && item.trackingNo ? esc(item.trackingNo) : "&nbsp;";
+    tableRowsHtml += `
+      <tr>
+        <td style="width:36%;">${nameCell}</td>
+        <td style="width:34%;">${dtsCell}</td>
+        <td class="p-track" style="width:30%;">${trackCell}</td>
+      </tr>`;
+  }
+
+  return `
+    <div class="pouch-slip">
+      <div class="pouch-hdr">
+        <img src="/dar-ro8-logo.jpg" alt="DAR Logo" class="pouch-logo" />
+        <div class="pouch-hdr-text">
+          <div class="p-rep">REPUBLIC OF THE PHILIPPINES</div>
+          <div class="p-dept">DEPARTMENT OF AGRARIAN REFORM</div>
+          <div class="p-tag">Tunay na Pagbabago sa Repormang Agraryo</div>
+        </div>
+      </div>
+
+      <div class="pouch-title-block">
+        <h2>POUCH SERVICE FOR MAILS${esc(courierTag)}</h2>
+        <div class="p-sub">(Transmittal Slip Form)</div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+        <div style="text-align:center;min-width:210px;">
+          <div style="border-bottom:1.5px solid #111;font-weight:700;padding:0 8px 2px;min-height:18px;">${esc(slipDate)}</div>
+          <div style="font-size:11px;margin-top:2px;">Date</div>
+        </div>
+      </div>
+
+      <div class="pouch-meta-line">
+        <div><strong>From:</strong> <span class="pouch-uline" style="min-width:190px;">${esc(rec.fromOffice || rec.originatingDivision || "")}</span></div>
+        <div></div>
+      </div>
+
+      <div class="pouch-meta-line">
+        <div></div>
+        <div><strong>Pouch Control No.</strong> <span class="pouch-uline" style="min-width:190px;text-align:center;color:#c62828;font-size:13px;">${esc(pouchNo)}</span></div>
+      </div>
+
+      <div class="pouch-meta-line">
+        <div><strong>Instruction:</strong> <span class="pouch-uline" style="min-width:240px;">${esc(rec.instruction || "")}</span></div>
+      </div>
+
+      <div class="pouch-meta-line" style="margin-bottom:8px;">
+        <div><strong>To/Cc:</strong> <span style="margin-left:6px;font-weight:700;">${esc(rec.toCc || "")}</span></div>
+      </div>
+
+      <table class="pouch-table">
+        <thead>
+          <tr>
+            <th>Name of Addressee</th>
+            <th>DTS Number</th>
+            <th class="p-red">Tracking Number.</th>
+          </tr>
+        </thead>
+        <tbody>${tableRowsHtml}</tbody>
+      </table>
+
+      <div class="pouch-heavy-rule"></div>
+
+      <div class="pouch-footer-grid">
+        <div>
+          <div class="pouch-f-row">
+            <span class="pouch-f-lbl">Date Received:</span>
+            <span class="pouch-f-val">${esc(dtRecv)}</span>
+          </div>
+          <div class="pouch-f-row">
+            <span class="pouch-f-lbl">Time Received:</span>
+            <span class="pouch-f-val">${esc(rec.transTimeReceived || "")}</span>
+          </div>
+          <div class="pouch-f-row">
+            <span class="pouch-f-lbl">By:</span>
+            <span class="pouch-f-val">${esc(rec.transReceivedBy || rec.receivedBy || rec.mailedBy || "")}</span>
+          </div>
+        </div>
+        <div>
+          <div class="pouch-f-row">
+            <span class="pouch-f-lbl">Date Released :</span>
+            <span class="pouch-f-val">${esc(dtRel)}</span>
+          </div>
+          <div class="pouch-f-row">
+            <span class="pouch-f-lbl">Date/ Time:</span>
+            <span class="pouch-f-val">${esc(rec.transReleaseDateTime || "")}</span>
+          </div>
+          <div class="pouch-f-row">
+            <span class="pouch-f-lbl p-red">Number of Mails :</span>
+            <span class="pouch-f-val p-red">${esc(numMails)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.openPrintMailingSlip = function (idOrRec) {
+  const rec = typeof idOrRec === "object" && idOrRec !== null
+    ? idOrRec
+    : (state.mailings || []).find((r) => r.id === idOrRec);
+  if (!rec) return showToast("Mailing record not found.", true);
+  document.getElementById("print-modal-title").textContent = `Pouch Service Transmittal Slip — ${rec.courier || "Mail"} ${rec.pouchControlNo || rec.mailingNo || ""}`;
+  document.getElementById("print-canvas").innerHTML = renderPouchTransmittalSlipHtml(rec);
+  openModal("modal-print");
 };
 
 window.deleteMailingRecord = async function (id) {
@@ -7001,6 +7175,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  const btnPrintMailModal = document.getElementById("btn-print-mail-modal");
+  if (btnPrintMailModal) {
+    btnPrintMailModal.addEventListener("click", () => {
+      const form = document.getElementById("form-mailing");
+      const addressees = readMailingAddresseesFromModal();
+      const draft = {
+        courier: form.elements.courier?.value || "",
+        mailingNo: form.elements.mailingNo?.value || "",
+        pouchControlNo: form.elements.pouchControlNo?.value || "",
+        dateMailed: form.elements.dateMailed?.value || "",
+        fromOffice: form.elements.fromOffice?.value || "",
+        originatingDivision: form.elements.originatingDivision?.value || "",
+        instruction: form.elements.instruction?.value || "",
+        toCc: form.elements.toCc?.value || "",
+        transDateReceived: form.elements.transDateReceived?.value || "",
+        transTimeReceived: form.elements.transTimeReceived?.value || "",
+        transReceivedBy: form.elements.transReceivedBy?.value || "",
+        transDateReleased: form.elements.transDateReleased?.value || "",
+        transReleaseDateTime: form.elements.transReleaseDateTime?.value || "",
+        numberOfMails: form.elements.numberOfMails?.value || "",
+        mailedBy: form.elements.mailedBy?.value || "",
+        addressees,
+      };
+      openPrintMailingSlip(draft);
+    });
+  }
+
   document.getElementById("form-mailing").addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!canEditIssuanceOrMailing()) {
@@ -7008,14 +7209,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     const addressees = readMailingAddresseesFromModal();
     if (!addressees.length || !addressees.some((a) => a.name)) {
-      return showToast("Please enter at least one Addressee / Recipient Name.", true);
+      return showToast("Please enter at least one Name of Addressee.", true);
     }
     const fd = new FormData(e.target);
     const payload = Object.fromEntries(fd.entries());
+    if (!String(payload.subject || "").trim()) {
+      const tag = payload.pouchControlNo ? `Pouch Control No. ${payload.pouchControlNo}` : (payload.docType || "Pouch Service Transmittal");
+      payload.subject = `${payload.courier || "Mail"} — ${tag} (${addressees.length} mail${addressees.length > 1 ? "s" : ""})`;
+    }
     payload.addressees = addressees;
     payload.recipientName = addressees.map((a) => a.name).filter(Boolean).join("\n");
     payload.trackingNo = addressees.map((a) => a.trackingNo).filter(Boolean).join("\n");
     payload.dateReceived = addressees.map((a) => a.dateReceived).filter(Boolean).join("\n");
+    if (!String(payload.numberOfMails || "").trim()) payload.numberOfMails = String(addressees.length);
     payload.recipients = [...selectedMailRecipients];
     payload.attachmentFile = currentMailAttachmentFile;
     const res = await apiFetch("/api/mailings", {

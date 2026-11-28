@@ -943,28 +943,33 @@ function syncMailingTabDirect_(body) {
   if (!sh) sh = ss.insertSheet(sheetName);
   else sh.clearContents();
   const headers = [
-    "Record ID", "Mailing / Control No.", "Courier", "Type of Document", "Date Mailed",
-    "Addressee / Recipient", "Tracking / Registry / Waybill No.", "Date Received / Return Card",
-    "Province", "Complete Address", "Document / Case Ref. No.", "Subject / Particulars",
-    "Originating Unit", "Mailed By", "Postage / Amount (PHP)", "Status", "Remarks", "PDF / Receipt", "Last Updated",
+    "Record ID", "Mailing / Control No.", "Pouch Control No.", "Courier", "Date",
+    "From", "Instruction", "To / Cc", "Name of Addressee", "DTS Number", "Tracking Number",
+    "Date Received / Return Card", "Type of Document", "Province", "Complete Address",
+    "Date Received (Slip)", "Time Received", "Received By", "Date Released", "Release Date/Time",
+    "Number of Mails", "Subject / Particulars", "Mailed By", "Postage (PHP)", "Status", "Remarks", "PDF / Receipt", "Last Updated",
   ];
   const rows = records.map(function (r) {
     const att = r.attachmentFile;
     const pdfVal = att ? String(att.driveUrl || att.url || att.name || "") : "";
     const addrs = Array.isArray(r.addressees) && r.addressees.length
       ? r.addressees
-      : [{ name: r.recipientName || "", trackingNo: r.trackingNo || "", dateReceived: r.dateReceived || "" }];
+      : [{ name: r.recipientName || "", dtsNumber: r.docRefNo || "", trackingNo: r.trackingNo || "", dateReceived: r.dateReceived || "" }];
     const fmtList = function (arr) {
       return arr.length > 1 ? arr.map(function (v, i) { return (i + 1) + ". " + (v || "—"); }).join("\n") : String(arr[0] || "");
     };
     return [
-      String(r.id || ""), String(r.mailingNo || ""), String(r.courier || courier), String(r.docType || ""),
-      String(r.dateMailed || ""), fmtList(addrs.map(function (a) { return a.name || ""; })),
+      String(r.id || ""), String(r.mailingNo || ""), String(r.pouchControlNo || ""), String(r.courier || courier),
+      String(r.dateMailed || ""), String(r.fromOffice || r.originatingDivision || ""), String(r.instruction || ""),
+      String(r.toCc || ""), fmtList(addrs.map(function (a) { return a.name || ""; })),
+      fmtList(addrs.map(function (a) { return a.dtsNumber || ""; })),
       fmtList(addrs.map(function (a) { return a.trackingNo || ""; })),
       fmtList(addrs.map(function (a) { return a.dateReceived || ""; })),
-      String(r.province || ""), String(r.recipientAddress || ""), String(r.docRefNo || ""),
-      String(r.subject || ""), String(r.originatingDivision || ""), String(r.mailedBy || ""),
-      String(r.amount || ""), String(r.status || ""), String(r.remarks || ""), pdfVal, String(r.updatedAt || r.createdAt || ""),
+      String(r.docType || ""), String(r.province || ""), String(r.recipientAddress || ""),
+      String(r.transDateReceived || ""), String(r.transTimeReceived || ""), String(r.transReceivedBy || r.receivedBy || ""),
+      String(r.transDateReleased || ""), String(r.transReleaseDateTime || ""), String(r.numberOfMails || addrs.length),
+      String(r.subject || ""), String(r.mailedBy || ""), String(r.amount || ""), String(r.status || ""),
+      String(r.remarks || ""), pdfVal, String(r.updatedAt || r.createdAt || ""),
     ];
   });
   const allValues = [headers].concat(rows);
@@ -1499,19 +1504,25 @@ function gasApiDispatch(req) {
     if ((method === "POST" || method === "PUT") && pathname === "/api/mailings") {
       if (user.role !== "ADMIN" && user.role !== "RECORDS") return { ok: false, statusCode: 403, error: "View-only access: Only System Admin or Records Section can encode or edit Mailing records." };
       const courier = String(body.courier || db.meta.mailingCouriers[0] || "PhilPost").trim();
+      const pouchControlNo = String(body.pouchControlNo || "").trim();
       const rawAddrs = Array.isArray(body.addressees) ? body.addressees : [];
       let addressees = rawAddrs.map(function (a) {
-        return { name: String((a && a.name) || "").trim(), trackingNo: String((a && a.trackingNo) || "").trim(), dateReceived: String((a && a.dateReceived) || "").trim() };
-      }).filter(function (a) { return a.name || a.trackingNo || a.dateReceived; });
+        return {
+          name: String((a && a.name) || "").trim(),
+          dtsNumber: String((a && a.dtsNumber) || "").trim(),
+          trackingNo: String((a && a.trackingNo) || "").trim(),
+          dateReceived: String((a && a.dateReceived) || "").trim(),
+        };
+      }).filter(function (a) { return a.name || a.dtsNumber || a.trackingNo || a.dateReceived; });
       if (!addressees.length && String(body.recipientName || "").trim()) {
-        addressees = [{ name: String(body.recipientName || "").trim(), trackingNo: String(body.trackingNo || "").trim(), dateReceived: String(body.dateReceived || "").trim() }];
+        addressees = [{ name: String(body.recipientName || "").trim(), dtsNumber: String(body.docRefNo || "").trim(), trackingNo: String(body.trackingNo || "").trim(), dateReceived: String(body.dateReceived || "").trim() }];
       }
       const recipientName = addressees.map(function (a) { return a.name; }).filter(Boolean).join("\n");
       const trackingNo = addressees.map(function (a) { return a.trackingNo; }).filter(Boolean).join("\n");
       const dateReceived = addressees.map(function (a) { return a.dateReceived; }).filter(Boolean).join("\n");
-      const subject = String(body.subject || "").trim();
-      if (!recipientName) return { ok: false, statusCode: 400, error: "At least one Addressee / Recipient Name is required." };
-      if (!subject) return { ok: false, statusCode: 400, error: "Subject / Particulars is required." };
+      const subject = String(body.subject || "").trim() || (courier + " — " + (pouchControlNo ? "Pouch Control No. " + pouchControlNo : (String(body.docType || "").trim() || "Pouch Service Transmittal")) + " (" + addressees.length + " mail" + (addressees.length > 1 ? "s" : "") + ")");
+      const numberOfMails = String(body.numberOfMails != null ? body.numberOfMails : "").trim() || String(addressees.length);
+      if (!recipientName) return { ok: false, statusCode: 400, error: "At least one Name of Addressee is required." };
 
       const idx = body.id ? db.mailings.findIndex(function (r) { return r.id === body.id; }) : -1;
       let saved, prevCourier = "";
@@ -1519,9 +1530,13 @@ function gasApiDispatch(req) {
         saved = {
           id: "mail-" + Utilities.getUuid().slice(0, 8),
           mailingNo: String(body.mailingNo || "").trim() || generateNextNumber_(db, "mailing", body.dateMailed, courier, body.mailingYear, "", user),
+          pouchControlNo: pouchControlNo,
           courier: courier,
           docType: String(body.docType || "").trim(),
           dateMailed: String(body.dateMailed || "").trim(),
+          fromOffice: String(body.fromOffice || "").trim(),
+          instruction: String(body.instruction || "").trim(),
+          toCc: String(body.toCc || "").trim(),
           addressees: addressees,
           trackingNo: trackingNo,
           docRefNo: String(body.docRefNo || "").trim(),
@@ -1534,6 +1549,13 @@ function gasApiDispatch(req) {
           amount: String(body.amount || "").trim(),
           status: String(body.status || "Mailed / In Transit").trim(),
           dateReceived: dateReceived,
+          receivedBy: String(body.receivedBy || body.transReceivedBy || "").trim(),
+          transDateReceived: String(body.transDateReceived || "").trim(),
+          transTimeReceived: String(body.transTimeReceived || "").trim(),
+          transReceivedBy: String(body.transReceivedBy || "").trim(),
+          transDateReleased: String(body.transDateReleased || "").trim(),
+          transReleaseDateTime: String(body.transReleaseDateTime || "").trim(),
+          numberOfMails: numberOfMails,
           remarks: String(body.remarks || "").trim(),
           recipients: normalizeStrList_(body.recipients),
           attachmentFile: body.attachmentFile || null,
@@ -1548,9 +1570,13 @@ function gasApiDispatch(req) {
         prevCourier = ex.courier;
         saved = Object.assign({}, ex, {
           mailingNo: String(body.mailingNo || ex.mailingNo).trim(),
+          pouchControlNo: body.pouchControlNo !== undefined ? pouchControlNo : (ex.pouchControlNo || ""),
           courier: courier,
           docType: body.docType !== undefined ? String(body.docType || "").trim() : (ex.docType || ""),
           dateMailed: String(body.dateMailed || "").trim(),
+          fromOffice: String(body.fromOffice != null ? body.fromOffice : ex.fromOffice || "").trim(),
+          instruction: String(body.instruction != null ? body.instruction : ex.instruction || "").trim(),
+          toCc: String(body.toCc != null ? body.toCc : ex.toCc || "").trim(),
           addressees: addressees,
           trackingNo: trackingNo,
           docRefNo: String(body.docRefNo != null ? body.docRefNo : ex.docRefNo || "").trim(),
@@ -1563,6 +1589,13 @@ function gasApiDispatch(req) {
           amount: String(body.amount != null ? body.amount : ex.amount || "").trim(),
           status: String(body.status || ex.status || "Mailed / In Transit").trim(),
           dateReceived: dateReceived,
+          receivedBy: String(body.receivedBy != null ? body.receivedBy : (body.transReceivedBy != null ? body.transReceivedBy : ex.receivedBy || "")).trim(),
+          transDateReceived: String(body.transDateReceived != null ? body.transDateReceived : ex.transDateReceived || "").trim(),
+          transTimeReceived: String(body.transTimeReceived != null ? body.transTimeReceived : ex.transTimeReceived || "").trim(),
+          transReceivedBy: String(body.transReceivedBy != null ? body.transReceivedBy : ex.transReceivedBy || "").trim(),
+          transDateReleased: String(body.transDateReleased != null ? body.transDateReleased : ex.transDateReleased || "").trim(),
+          transReleaseDateTime: String(body.transReleaseDateTime != null ? body.transReleaseDateTime : ex.transReleaseDateTime || "").trim(),
+          numberOfMails: numberOfMails,
           remarks: String(body.remarks != null ? body.remarks : ex.remarks || "").trim(),
           recipients: body.recipients !== undefined ? normalizeStrList_(body.recipients) : (ex.recipients || []),
           attachmentFile: body.attachmentFile !== undefined ? body.attachmentFile : (ex.attachmentFile || null),
