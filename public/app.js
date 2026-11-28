@@ -2819,7 +2819,7 @@ function renderMailingAddresseesEditor(items = []) {
 
   const syncRows = () => {
     const rows = [...rowsWrap.querySelectorAll(".mail-addr-row")];
-    let filledCount = 0;
+    let addresseeCount = 0;
     rows.forEach((row, i) => {
       const num = row.querySelector(".multi-name-num");
       const rm = row.querySelector(".multi-name-rm");
@@ -2830,13 +2830,10 @@ function renderMailingAddresseesEditor(items = []) {
         rm.style.opacity = rows.length <= 1 ? "0.4" : "1";
       }
       const n = (row.querySelector(".mail-addr-name")?.value || "").trim();
-      const t = (row.querySelector(".mail-addr-track")?.value || "").trim();
-      const d = (row.querySelector(".mail-addr-dts")?.value || "").trim();
-      if (n || t || d) filledCount++;
+      if (n) addresseeCount++;
     });
-    const showCnt = filledCount || rows.length;
-    if (cntEl) cntEl.textContent = `${showCnt} mail${showCnt > 1 ? "s" : ""}`;
-    if (numMailsInp) numMailsInp.value = String(filledCount || 0);
+    if (cntEl) cntEl.textContent = `${addresseeCount} mail${addresseeCount === 1 ? "" : "s"}`;
+    if (numMailsInp) numMailsInp.value = String(addresseeCount);
   };
 
   const addRow = (item = {}, focusNew = true) => {
@@ -3283,10 +3280,13 @@ window.openEditMailing = function (id) {
   if (form.elements.instruction) form.elements.instruction.value = rec.instruction || "";
   if (form.elements.toCc) form.elements.toCc.value = rec.toCc || "";
   if (form.elements.transDateReceived) form.elements.transDateReceived.value = rec.transDateReceived || rec.dateMailed || "";
-  if (form.elements.transTimeReceived) form.elements.transTimeReceived.value = rec.transTimeReceived || "";
+  if (form.elements.transTimeReceived) form.elements.transTimeReceived.value = toTimeInputVal(rec.transTimeReceived || "");
   if (form.elements.transReceivedBy) form.elements.transReceivedBy.value = rec.transReceivedBy || rec.receivedBy || "";
   if (form.elements.transDateReleased) form.elements.transDateReleased.value = rec.transDateReleased || rec.dateMailed || "";
-  if (form.elements.transReleaseDateTime) form.elements.transReleaseDateTime.value = rec.transReleaseDateTime || "";
+  if (form.elements.transReleaseDateTime) {
+    const rawRel = String(rec.transReleaseDateTime || "").trim();
+    form.elements.transReleaseDateTime.value = toDatetimeLocalValue(rawRel) || (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(rawRel) ? rawRel.slice(0, 16) : "");
+  }
   form.elements.docRefNo.value = rec.docRefNo || "";
   form.elements.status.value = rec.status || "Mailed / In Transit";
   form.elements.province.value = rec.province || "";
@@ -3300,15 +3300,45 @@ window.openEditMailing = function (id) {
     ? `View Mailing — ${rec.mailingNo} (View Only)`
     : `Edit Mailing — ${rec.mailingNo}`;
   renderMailingAddresseesEditor(getMailingAddresseesList(rec));
-  if (form.elements.numberOfMails && rec.numberOfMails !== undefined && String(rec.numberOfMails).trim() !== "") {
-    form.elements.numberOfMails.value = String(rec.numberOfMails);
-  }
   renderMailRecipientPicker();
   renderMailRecipientChips();
   renderMailPdfAttachmentBar();
   applyMailingModalReadOnly(isReadOnly);
   openModal("modal-mailing");
 };
+
+function toTimeInputVal(val) {
+  const s = String(val || "").trim();
+  if (/^\d{2}:\d{2}/.test(s)) return s.slice(0, 5);
+  const m = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return "";
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const ap = m[3].toUpperCase();
+  if (ap === "PM" && h < 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${min}`;
+}
+
+function formatTime12h(val) {
+  const s = String(val || "").trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{2}):(\d{2})/);
+  if (!m) return s;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${min} ${ap}`;
+}
+
+function formatDateTimeSlipDash(val) {
+  const s = String(val || "").trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})[T\s]+(\d{2}:\d{2})/);
+  if (m) return `${formatDateSlipDash(m[1])} / ${formatTime12h(m[2])}`;
+  return formatDateTimeDisplay(s) || s;
+}
 
 function formatDateSlipDash(iso) {
   if (!iso) return "";
@@ -3322,14 +3352,14 @@ function formatDateSlipDash(iso) {
 function renderPouchTransmittalSlipHtml(rec) {
   const addrs = getMailingAddresseesList(rec);
   const totalRows = Math.max(18, addrs.length);
-  const numMails = (rec.numberOfMails !== undefined && String(rec.numberOfMails).trim() !== "")
-    ? String(rec.numberOfMails)
-    : String(addrs.filter((a) => a.name || a.dtsNumber || a.trackingNo).length);
+  const numMails = String(addrs.filter((a) => String(a.name || "").trim()).length);
   const pouchNo = rec.pouchControlNo || rec.mailingNo || "";
   const courierTag = rec.courier ? ` (${String(rec.courier).toUpperCase()})` : "";
   const slipDate = formatDateSlipDash(rec.dateMailed || "");
   const dtRecv = formatDateSlipDash(rec.transDateReceived || rec.dateMailed || "");
+  const tmRecv = formatTime12h(rec.transTimeReceived || "");
   const dtRel = formatDateSlipDash(rec.transDateReleased || rec.dateMailed || "");
+  const dtRelTime = formatDateTimeSlipDash(rec.transReleaseDateTime || "");
 
   let tableRowsHtml = "";
   for (let i = 0; i < totalRows; i++) {
@@ -3407,7 +3437,7 @@ function renderPouchTransmittalSlipHtml(rec) {
           </div>
           <div class="pouch-f-row">
             <span class="pouch-f-lbl">Time Received:</span>
-            <span class="pouch-f-val">${esc(rec.transTimeReceived || "")}</span>
+            <span class="pouch-f-val">${esc(tmRecv)}</span>
           </div>
           <div class="pouch-f-row">
             <span class="pouch-f-lbl">By:</span>
@@ -3421,7 +3451,7 @@ function renderPouchTransmittalSlipHtml(rec) {
           </div>
           <div class="pouch-f-row">
             <span class="pouch-f-lbl">Date/ Time:</span>
-            <span class="pouch-f-val">${esc(rec.transReleaseDateTime || "")}</span>
+            <span class="pouch-f-val">${esc(dtRelTime)}</span>
           </div>
           <div class="pouch-f-row">
             <span class="pouch-f-lbl p-red">Number of Mails :</span>
@@ -7213,15 +7243,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     const fd = new FormData(e.target);
     const payload = Object.fromEntries(fd.entries());
+    const mailCnt = addressees.filter((a) => a.name).length;
     if (!String(payload.subject || "").trim()) {
-      const tag = payload.pouchControlNo ? `Pouch Control No. ${payload.pouchControlNo}` : (payload.docType || "Pouch Service Transmittal");
-      payload.subject = `${payload.courier || "Mail"} — ${tag} (${addressees.length} mail${addressees.length > 1 ? "s" : ""})`;
+      const tag = payload.docType || "Pouch Service Transmittal";
+      payload.subject = `${payload.courier || "Mail"} — ${tag} (${mailCnt} mail${mailCnt === 1 ? "" : "s"})`;
     }
     payload.addressees = addressees;
     payload.recipientName = addressees.map((a) => a.name).filter(Boolean).join("\n");
     payload.trackingNo = addressees.map((a) => a.trackingNo).filter(Boolean).join("\n");
     payload.dateReceived = addressees.map((a) => a.dateReceived).filter(Boolean).join("\n");
-    if (!String(payload.numberOfMails || "").trim()) payload.numberOfMails = String(addressees.length);
+    payload.numberOfMails = String(mailCnt);
     payload.recipients = [...selectedMailRecipients];
     payload.attachmentFile = currentMailAttachmentFile;
     const res = await apiFetch("/api/mailings", {

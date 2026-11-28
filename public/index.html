@@ -1823,7 +1823,7 @@
                   </label>
                   <label class="field">
                     <span>Time Received</span>
-                    <input type="text" name="transTimeReceived" class="input" placeholder="e.g. 10:30 AM" />
+                    <input type="time" name="transTimeReceived" class="input" />
                   </label>
                   <label class="field">
                     <span>By (Received By)</span>
@@ -1835,11 +1835,11 @@
                   </label>
                   <label class="field">
                     <span>Date / Time (Released)</span>
-                    <input type="text" name="transReleaseDateTime" class="input" placeholder="e.g. 01-Oct-26 / 2:00 PM" />
+                    <input type="datetime-local" name="transReleaseDateTime" class="input" />
                   </label>
                   <label class="field">
-                    <span style="color:#b71c1c;">Number of Mails</span>
-                    <input type="number" name="numberOfMails" id="mail-num-mails" class="input" min="0" style="font-weight:800;color:#b71c1c;" placeholder="Auto-counted" />
+                    <span style="color:#b71c1c;">Number of Mails (Auto from Addressees)</span>
+                    <input type="text" name="numberOfMails" id="mail-num-mails" class="input" readonly style="font-weight:800;color:#b71c1c;background:#fff8f8;" value="0" />
                   </label>
                 </div>
               </div>
